@@ -117,6 +117,25 @@ PROMPT_CHAT = """
 - 2-4 абзаца, без воды
 """
 
+PROMPT_QUICK_MATCH = """
+Ты — карьерный эксперт МТС.
+
+Пользователь:
+- Образование: {education}
+- Направление: {field}
+- Опыт: {experience}
+- Навыки: {skills}
+
+Верни ТОЛЬКО JSON с 5 профессиями:
+{{
+    "professions": [
+        {{"title": "Название", "match_percent": число, "reason": "почему подходит (1 предложение)"}}
+    ]
+}}
+
+Ничего лишнего. Только JSON.
+"""
+
 
 async def analyze_career(user_data: dict) -> dict:
     if not openai_client:
@@ -154,6 +173,63 @@ async def analyze_career(user_data: dict) -> dict:
     except Exception as e:
         logger.error(f"AI Error при анализе карьеры: {e}")
         return _get_mock_analysis()
+
+async def quick_match_career(user_data: dict) -> dict:
+    """Быстрый AI матчинг — только профессии с %"""
+    if not openai_client:
+        # Демо-режим (без AI)
+        return {
+            "professions": [
+                {"title": "Стажёр продаж", "match_percent": 85, "reason": "Отличная коммуникация и работа с людьми"},
+                {"title": "Стажёр HR", "match_percent": 78, "reason": "Интерес к рекрутингу и работе с кандидатами"},
+                {"title": "Маркетолог", "match_percent": 72, "reason": "Креативное мышление и аналитика"},
+                {"title": "Аналитик данных", "match_percent": 68, "reason": "Навыки Excel и аналитический склад ума"},
+                {"title": "IT-стажёр", "match_percent": 65, "reason": "Технические навыки и интерес к IT"},
+                {"title": "Специалист закупок", "match_percent": 55, "reason": "Внимательность к деталям и документам"}
+            ]
+        }
+    
+    prompt = f"""
+Ты — карьерный эксперт МТС.
+
+Пользователь:
+- Образование: {user_data.get('education', 'не указано')}
+- Направление: {user_data.get('field', 'не указано')}
+- Опыт: {user_data.get('experience', 'не указан')}
+- Навыки: {', '.join(user_data.get('skills', []))}
+
+Верни ТОЛЬКО JSON (никакого другого текста):
+{{
+    "professions": [
+        {{"title": "Название профессии", "match_percent": число от 0 до 100, "reason": "почему подходит (1 короткое предложение)"}}
+    ]
+}}
+
+Минимум 5 профессий из списка МТС: продажи, HR, маркетинг, аналитика, IT, юрист, закупки, инженерия.
+"""
+    try:
+        content = await _call_openai_with_fallback(
+            messages=[
+                {"role": "system", "content": "Отвечай строго JSON. Никаких пояснений."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5,
+            max_tokens=1000
+        )
+        content = content.strip().strip("```json").strip("```").strip()
+        result = json.loads(content)
+        return result
+    except Exception as e:
+        logger.error(f"Quick match error: {e}")
+        return {
+            "professions": [
+                {"title": "Стажёр продаж", "match_percent": 85, "reason": "Коммуникабельность"},
+                {"title": "Стажёр HR", "match_percent": 78, "reason": "Работа с людьми"},
+                {"title": "Маркетинг", "match_percent": 72, "reason": "Креативность"},
+                {"title": "Аналитик данных", "match_percent": 68, "reason": "Аналитика"},
+                {"title": "IT-стажёр", "match_percent": 65, "reason": "Технический интерес"}
+            ]
+        }
 
 
 async def chat_with_ai(message: str, chat_history: list, user_context: dict = None, extra_context: str = None) -> str:
@@ -335,4 +411,94 @@ def _get_mock_match(user_skills, vacancy_requirements):
         "missing_skills": list(missing),
         "matching_skills": list(matching),
         "recommendations": [f"Изучи: {skill}" for skill in list(missing)[:3]]
+    }
+
+async def analyze_scenario_match(role_id: str, user_answers: list) -> dict:
+    """
+    Анализирует ответы пользователя на сценарии и возвращает процент совпадения с ролью
+    """
+    # Загружаем сценарии
+    import json, os
+    scenarios_path = os.path.join(os.path.dirname(__file__), '..', 'data', 'scenarios_primary.json')
+    
+    with open(scenarios_path, 'r', encoding='utf-8') as f:
+        scenarios_data = json.load(f)
+    
+    # Находим нужную роль
+    role_scenario = None
+    for s in scenarios_data.get("scenarios", []):
+        if s.get("role_id") == role_id:
+            role_scenario = s
+            break
+    
+    if not role_scenario:
+        return {"match_score": 0, "error": "Role not found"}
+    
+    # Загружаем требования к роли из mts_vacancies
+    from services.mts_vacancies import get_vacancy_by_id
+    vacancy = get_vacancy_by_id(role_id)
+    requirements = vacancy.get("requirements", []) if vacancy else []
+    
+    if not openai_client:
+        # Демо-режим: считаем через простую логику
+        return _simple_scenario_match(user_answers, requirements, role_scenario)
+    
+    # Режим с AI
+    prompt = f"""
+Ты — эксперт по подбору персонала МТС.
+
+Роль: {role_scenario.get('role_name')}
+
+Требования к роли:
+{chr(10).join(['- ' + r for r in requirements])}
+
+Вопросы и ответы пользователя:
+{chr(10).join([f"Вопрос: {q}\nОтвет: {a.get('answer', '')}" for q, a in zip(role_scenario.get('questions', []), user_answers)])}
+
+Оцени, насколько ответы пользователя соответствуют требованиям роли.
+Верни ТОЛЬКО JSON:
+{{
+    "match_score": число 0-100,
+    "strengths": ["сильная сторона 1", "сильная сторона 2"],
+    "weaknesses": ["слабое место 1", "слабое место 2"],
+    "feedback": "короткая обратная связь (1-2 предложения)"
+}}
+"""
+    try:
+        content = await _call_openai_with_fallback(
+            messages=[
+                {"role": "system", "content": "Ты — эксперт по оценке кандидатов. Отвечай строго JSON."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.5,
+            max_tokens=500
+        )
+        content = content.strip().strip("```json").strip("```").strip()
+        return json.loads(content)
+    except Exception as e:
+        logger.error(f"Scenario analysis error: {e}")
+        return _simple_scenario_match(user_answers, requirements, role_scenario)
+
+
+def _simple_scenario_match(user_answers: list, requirements: list, role_scenario: dict) -> dict:
+    """Простой матчинг без AI (для демо)"""
+    # Собираем все ответы в одну строку
+    answers_text = " ".join([a.get("answer", "").lower() for a in user_answers])
+    
+    # Считаем, сколько требований задето
+    matched = 0
+    for req in requirements:
+        req_lower = req.lower()
+        # Ищем ключевые слова из требования в ответах
+        keywords = req_lower.split()[:3]  # первые 3 слова
+        if any(kw in answers_text for kw in keywords):
+            matched += 1
+    
+    match_score = round(matched / len(requirements) * 100) if requirements else 50
+    
+    return {
+        "match_score": match_score,
+        "strengths": ["Хорошая коммуникация" if "говор" in answers_text else "Базовые знания"],
+        "weaknesses": ["Требуется практика" if match_score < 70 else "—"],
+        "feedback": f"Ты набрал {match_score}% соответствия. " + ("Отличный результат!" if match_score > 70 else "Есть куда расти!")
     }

@@ -52,3 +52,22 @@ async def get_analysis_result(telegram_id: str):
         }
 
     return analysis
+
+@router.post("/quick-match")
+async def quick_match(data: CareerAnalysis):
+    """Быстрый AI матчинг — только профессии"""
+    user = await db.get_user(data.telegram_id)
+    if not user:
+        return {"professions": []}
+    
+    from services.ai_service import quick_match_career
+    
+    user_data = {
+        "education": user.get("education", ""),
+        "field": user.get("field", ""),
+        "experience": user.get("experience", ""),
+        "skills": json.loads(user["skills"]) if user["skills"] else [],
+    }
+    
+    result = await quick_match_career(user_data)
+    return result

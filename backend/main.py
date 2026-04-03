@@ -1,7 +1,7 @@
 import logging
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api import user, career, vacancies, chat
+from api import user, career, vacancies, chat, scenarios
 from database.db import db
 
 # Настройка логирования
@@ -38,6 +38,7 @@ app.include_router(user.router, prefix="/api/user", tags=["User"])
 app.include_router(career.router, prefix="/api/career", tags=["Career"])
 app.include_router(vacancies.router, prefix="/api/vacancies", tags=["Vacancies"])
 app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
+app.include_router(scenarios.router, prefix="/api/scenarios", tags=["Scenarios"])
 
 @app.get("/api/health")
 async def health_check():
