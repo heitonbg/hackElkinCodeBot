@@ -94,10 +94,10 @@ export default function RoleSelection() {
       <div className="onboarding-step">
         <div style={{ textAlign: 'center', marginBottom: 16 }}>
           <div style={{ fontSize: '2.5rem', marginBottom: 8 }}>🎯</div>
-          <h2 style={{ fontSize: '1.3rem', marginBottom: 4 }}>
+          <h2 style={{ fontSize: '1.3rem', marginBottom: 4, color: 'var(--dark-text)' }}>
             {roles.length} ролей подходят тебе
           </h2>
-          <p style={{ opacity: 0.7, fontSize: '0.85rem' }}>
+          <p style={{ color: 'var(--dark-text-muted)', fontSize: '0.85rem' }}>
             Выбери те, что интересуют — по каждой будет тест
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function RoleSelection() {
         {/* Поиск */}
         <input
           type="text"
-          className="chat-input"
+          className="onboarding-input"
           style={{ width: '100%', borderRadius: 12, marginBottom: 12 }}
           placeholder="🔍 Поиск профессии (например: дизайнер, уборщик, python...)"
           value={searchQuery}
@@ -120,8 +120,8 @@ export default function RoleSelection() {
             setSelectedRoles(init)
           }} style={{
             flex: 1, padding: '8px 12px', borderRadius: 10,
-            background: 'rgba(0,184,148,0.15)', border: '1px solid rgba(0,184,148,0.3)',
-            color: 'var(--success)', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600,
+            background: 'rgba(227,6,17,0.15)', border: '1px solid rgba(227,6,17,0.3)',
+            color: 'var(--primary)', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600,
           }}>✨ Топ-3</button>
           <button onClick={() => {
             const all = {}
@@ -129,8 +129,8 @@ export default function RoleSelection() {
             setSelectedRoles(all)
           }} style={{
             flex: 1, padding: '8px 12px', borderRadius: 10,
-            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.25)',
-            color: 'white', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600,
+            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)',
+            color: 'var(--dark-text)', fontSize: '0.85rem', cursor: 'pointer', fontWeight: 600,
           }}>Все</button>
         </div>
 
@@ -142,14 +142,14 @@ export default function RoleSelection() {
               <button key={role.role_id} onClick={() => toggleRole(role.role_id)} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 padding: '11px 14px', borderRadius: 12,
-                border: isSelected ? '2px solid var(--primary)' : '2px solid rgba(255,255,255,0.15)',
-                background: isSelected ? 'rgba(227,6,17,0.1)' : 'rgba(255,255,255,0.04)',
+                border: isSelected ? '2px solid var(--primary)' : '2px solid rgba(255,255,255,0.12)',
+                background: isSelected ? 'rgba(227,6,17,0.15)' : 'rgba(255,255,255,0.06)',
                 cursor: 'pointer', transition: 'all 0.15s',
               }}>
                 <div style={{ textAlign: 'left', flex: 1 }}>
-                  <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'white' }}>{role.title}</div>
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem', color: 'var(--dark-text)' }}>{role.title}</div>
                   {role.category && (
-                    <div style={{ fontSize: '0.7rem', opacity: 0.5, marginTop: 2 }}>{role.category}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--dark-text-muted)', marginTop: 2 }}>{role.category}</div>
                   )}
                   {role.match_percent !== undefined && (
                     <div style={{ fontSize: '0.75rem', color: 'var(--primary)', marginTop: 2, fontWeight: 600 }}>
@@ -159,7 +159,7 @@ export default function RoleSelection() {
                 </div>
                 <span style={{
                   width: 22, height: 22, borderRadius: '50%',
-                  border: `2px solid ${isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.25)'}`,
+                  border: `2px solid ${isSelected ? 'var(--primary)' : 'rgba(255,255,255,0.2)'}`,
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   background: isSelected ? 'var(--primary)' : 'transparent',
                   color: isSelected ? 'white' : 'transparent',
@@ -177,8 +177,8 @@ export default function RoleSelection() {
           disabled={selectedCount === 0}
           style={{
             width: '100%',
-            background: selectedCount > 0 ? 'white' : 'rgba(255,255,255,0.25)',
-            color: 'var(--primary)',
+            background: selectedCount > 0 ? 'var(--primary)' : 'rgba(255,255,255,0.1)',
+            color: selectedCount > 0 ? 'white' : 'var(--dark-text-muted)',
           }}
         >
           🚀 Пройти тест ({selectedCount} {selectedCount === 1 ? 'роль' : selectedCount < 5 ? 'роли' : 'ролей'})
@@ -191,7 +191,7 @@ export default function RoleSelection() {
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'rgba(255,255,255,0.5)',
+              color: 'var(--dark-text-muted)',
               cursor: 'pointer',
               fontSize: '0.85rem',
               padding: '8px 16px',

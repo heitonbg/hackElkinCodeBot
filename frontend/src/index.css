@@ -12,25 +12,41 @@
   --tg-theme-section-bg-color: #ffffff;
   --tg-theme-section-header-text-color: #E30611;
   --tg-theme-subtitle-text-color: #999999;
-  --tg-theme-destructive-text-color: #E30611;
+  --tg-theme-destructive-text-color: #EF4444;
 
-  /* MTS Brand Colors */
-  --mts-red: #E30611;
-  --mts-red-light: #FF2D37;
-  --mts-red-dark: #C4050F;
-  --mts-red-bg: #FFF5F5;
-  --mts-dark: #1A1A1A;
-  --mts-gray: #6B7280;
-  --mts-gray-light: #E5E7EB;
+  /* MTS Fresh Colors */
+  --mts-red: #E30611;          /* MTS бренд */
+  --mts-red-soft: #DC2626;     /* Мягкий красный — приглушённый */
+  --mts-red-muted: #991B1B;    /* Тёмный приглушённый */
+  --mts-red-light: #FECACA;    /* Светлый для фонов */
+  --mts-red-dark: #7F1D1D;
+  --mts-red-bg: #FEF2F2;       /* Очень светлый тёплый фон */
   
-  --primary: #E30611;
-  --primary-light: #FF2D37;
-  --primary-dark: #C4050F;
+  /* Тёмная тема для тестов */
+  --dark-bg: #27272A;          /* Тёплый тёмно-серый (zinc-800) */
+  --dark-bg-light: #3F3F46;    /* Чуть светлее (zinc-700) */
+  --dark-text: #F4F4F5;        /* Почти белый */
+  --dark-text-muted: #A1A1AA;  /* Серый текст */
+  
+  --primary: #E30611;          /* MTS красный — основной */
+  --primary-soft: #DC2626;     /* Мягкая версия */
+  --primary-muted: #B91C1C;    /* Приглушённая для кнопок */
+  --primary-light: #FECACA;
+  --primary-dark: #991B1B;
+  
+  --mts-dark: #18181B;
+  --mts-gray: #71717A;
+  --mts-gray-light: #E4E4E7;
+
   --success: #10B981;
   --warning: #F59E0B;
   --danger: #EF4444;
-  --gradient: linear-gradient(135deg, #E30611 0%, #FF2D37 100%);
-  --gradient-subtle: linear-gradient(135deg, #FFF5F5 0%, #FFFFFF 100%);
+  
+  /* Градиенты */
+  --gradient: linear-gradient(135deg, #E30611 0%, #DC2626 100%);
+  --gradient-soft: linear-gradient(135deg, #991B1B 0%, #7F1D1D 100%);
+  --gradient-subtle: linear-gradient(180deg, #FEF2F2 0%, #FFFFFF 100%);
+  --gradient-dark: linear-gradient(180deg, #27272A 0%, #1F1F23 100%);
 }
 
 * {
@@ -41,8 +57,8 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-  background: var(--tg-theme-secondary-bg-color, #f5f5f5);
-  color: var(--tg-theme-text-color, #000);
+  background: #18181B;
+  color: var(--dark-text, #F4F4F5);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
@@ -51,6 +67,33 @@ body {
 .app {
   min-height: 100vh;
   padding-bottom: 70px;
+  background: #18181B;
+  position: relative;
+  /* Плавный переход фона при смене страниц */
+  transition: background-color 0.4s ease;
+}
+
+/* Красное свечение сверху на всех страницах */
+.app::before {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 500px;
+  background: radial-gradient(ellipse at top, rgba(227, 6, 17, 0.12) 0%, transparent 70%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Нижняя навигация — тёмная */
+.bottom-nav {
+  background: #27272A;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+
+.bottom-nav-item.active {
+  color: var(--primary);
 }
 
 /* ===== Typography ===== */
@@ -58,35 +101,46 @@ h1 {
   font-size: 1.75rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
+  color: var(--dark-text);
 }
 
 h2 {
   font-size: 1.5rem;
   font-weight: 600;
   margin-bottom: 0.5rem;
+  color: var(--dark-text);
 }
 
 h3 {
   font-size: 1.25rem;
   font-weight: 600;
   margin-bottom: 0.25rem;
+  color: var(--dark-text);
 }
 
 .text-sm {
   font-size: 0.875rem;
+  color: var(--dark-text-muted);
 }
 
 .text-muted {
-  color: var(--tg-theme-hint-color, #999);
+  color: var(--dark-text-muted);
 }
 
-/* ===== Cards ===== */
+/* ===== Карточки (тёмная тема) ===== */
 .card {
-  background: var(--tg-theme-section-bg-color, #fff);
+  background: var(--dark-bg-light);
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  transition: box-shadow 0.2s, border-color 0.2s;
+}
+
+.card:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.2);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .card-header {
@@ -113,14 +167,20 @@ h3 {
 }
 
 .btn-primary {
-  background: var(--gradient);
+  background: var(--primary-muted);
   color: white;
-  box-shadow: 0 4px 12px rgba(227, 6, 17, 0.25);
+  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.15);
 }
 
 .btn-primary:hover {
+  background: var(--primary-soft);
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(227, 6, 17, 0.35);
+  box-shadow: 0 6px 16px rgba(227, 6, 17, 0.2);
+}
+
+.btn-primary:active {
+  background: var(--primary-dark);
+  transform: translateY(0);
 }
 
 .btn-primary:disabled {
@@ -131,8 +191,14 @@ h3 {
 }
 
 .btn-secondary {
-  background: var(--tg-theme-secondary-bg-color, #f0f0f0);
-  color: var(--tg-theme-text-color, #000);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--dark-text);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
 }
 
 .btn-outline {
@@ -145,24 +211,25 @@ h3 {
 .progress-bar {
   width: 100%;
   height: 8px;
-  background: var(--tg-theme-secondary-bg-color, #e0e0e0);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: var(--gradient);
+  background: var(--primary);
   border-radius: 4px;
   transition: width 0.5s ease;
-  box-shadow: 0 2px 8px rgba(227, 6, 17, 0.3);
+  box-shadow: 0 2px 8px rgba(227, 6, 17, 0.2);
 }
 
 /* ===== Tags ===== */
 .tag {
   display: inline-block;
   padding: 4px 12px;
-  background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--dark-text);
   border-radius: 20px;
   font-size: 0.8rem;
   margin: 4px;
@@ -171,12 +238,12 @@ h3 {
 
 .tag:hover {
   transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .tag-primary {
-  background: rgba(227, 6, 17, 0.1);
-  color: var(--primary);
+  background: rgba(227, 6, 17, 0.2);
+  color: var(--primary-light);
   font-weight: 500;
 }
 
@@ -191,11 +258,11 @@ h3 {
 .spinner {
   width: 40px;
   height: 40px;
-  border: 3px solid var(--tg-theme-secondary-bg-color, #e0e0e0);
+  border: 3px solid rgba(255, 255, 255, 0.1);
   border-top-color: var(--primary);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  box-shadow: 0 0 10px rgba(227, 6, 17, 0.2);
+  box-shadow: 0 0 10px rgba(227, 6, 17, 0.15);
 }
 
 @keyframes spin {
@@ -210,9 +277,10 @@ h3 {
   right: 0;
   display: flex;
   justify-content: space-around;
-  background: var(--tg-theme-header-bg-color, #fff);
+  background: #27272A;
   padding: 8px 0;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.2);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
   z-index: 100;
 }
 
@@ -221,7 +289,7 @@ h3 {
   flex-direction: column;
   align-items: center;
   text-decoration: none;
-  color: var(--tg-theme-hint-color, #999);
+  color: var(--dark-text-muted);
   font-size: 0.7rem;
   padding: 4px 8px;
   transition: color 0.2s;
@@ -241,64 +309,80 @@ h3 {
   margin-bottom: 2px;
 }
 
-/* ===== Page Header ===== */
+/* ===== Page Header (тёмная тема) ===== */
 .page-header {
-  background: var(--gradient);
+  background: var(--dark-bg);
   color: white;
   padding: 24px 16px 36px;
   border-radius: 0 0 28px 28px;
   margin-bottom: -10px;
-  box-shadow: 0 8px 24px rgba(227, 6, 17, 0.3);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   position: relative;
   overflow: hidden;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 1;
 }
 
 .page-header::before {
   content: '';
   position: absolute;
-  top: -50%;
-  right: -20%;
-  width: 200px;
-  height: 200px;
-  background: rgba(255, 255, 255, 0.1);
+  inset: 0;
+  background: radial-gradient(ellipse at top, rgba(227, 6, 17, 0.3) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.page-header::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -10%;
+  width: 150px;
+  height: 150px;
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 50%;
   pointer-events: none;
 }
 
 .page-header h1 {
   margin: 0;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  position: relative;
+  z-index: 1;
 }
 
 .page-header p {
-  opacity: 0.95;
+  opacity: 0.8;
   margin-top: 4px;
+  position: relative;
+  z-index: 1;
 }
 
-/* ===== Vacancy Card ===== */
+/* ===== Vacancy Card (тёмная тема) ===== */
 .vacancy-card {
-  background: var(--tg-theme-section-bg-color, #fff);
+  background: var(--dark-bg-light);
   border-radius: 16px;
   padding: 16px;
   margin-bottom: 12px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
-  border-left: 4px solid var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   transition: all 0.2s;
 }
 
 .vacancy-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 20px rgba(227, 6, 17, 0.12);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(227, 6, 17, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .vacancy-title {
   font-weight: 600;
   font-size: 1.1rem;
   margin-bottom: 4px;
+  color: var(--dark-text);
 }
 
 .vacancy-company {
-  color: var(--tg-theme-hint-color, #999);
+  color: var(--dark-text-muted);
   font-size: 0.9rem;
   margin-bottom: 8px;
 }
@@ -367,46 +451,49 @@ h3 {
 }
 
 .chat-message.user .chat-bubble {
-  background: var(--gradient);
+  background: var(--primary);
   color: white;
   border-bottom-right-radius: 4px;
-  box-shadow: 0 2px 8px rgba(227, 6, 17, 0.2);
+  box-shadow: 0 2px 8px rgba(227, 6, 17, 0.15);
 }
 
 .chat-message.ai .chat-bubble {
-  background: var(--tg-theme-section-bg-color, #fff);
-  color: var(--tg-theme-text-color, #000);
+  background: var(--dark-bg-light);
+  color: var(--dark-text);
   border-bottom-left-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chat-input-container {
   display: flex;
   gap: 8px;
   padding: 12px 16px;
-  background: var(--tg-theme-header-bg-color, #fff);
-  border-top: 1px solid var(--tg-theme-secondary-bg-color, #e0e0e0);
+  background: #27272A;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .chat-input {
   flex: 1;
   padding: 12px 16px;
   border-radius: 24px;
-  border: 1px solid var(--tg-theme-secondary-bg-color, #e0e0e0);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--dark-bg-light);
+  color: var(--dark-text);
   font-size: 1rem;
   outline: none;
 }
 
 .chat-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(227, 6, 17, 0.1);
+  box-shadow: 0 0 0 3px rgba(227, 6, 17, 0.15);
 }
 
 .chat-send-btn {
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: var(--gradient);
+  background: var(--primary);
   border: none;
   color: white;
   font-size: 1.2rem;
@@ -415,12 +502,13 @@ h3 {
   align-items: center;
   justify-content: center;
   transition: all 0.2s;
-  box-shadow: 0 2px 8px rgba(227, 6, 17, 0.3);
+  box-shadow: 0 2px 8px rgba(227, 6, 17, 0.25);
 }
 
 .chat-send-btn:hover:not(:disabled) {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(227, 6, 17, 0.4);
+  background: var(--primary-soft);
+  box-shadow: 0 4px 12px rgba(227, 6, 17, 0.35);
 }
 
 .chat-send-btn:disabled {
@@ -428,12 +516,39 @@ h3 {
   cursor: not-allowed;
 }
 
-/* ===== Onboarding ===== */
+/* ===== Onboarding (тёмная тема) ===== */
 .onboarding-container {
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 24px 16px;
-  background: var(--gradient);
-  color: white;
+  background: transparent;
+  color: var(--dark-text);
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+/* Красное свечение на onboarding поверх общего */
+.onboarding-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 350px;
+  background: radial-gradient(ellipse at top, rgba(227, 6, 17, 0.1) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.onboarding-container::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  background: radial-gradient(ellipse at bottom, rgba(227, 6, 17, 0.06) 0%, transparent 50%);
+  pointer-events: none;
 }
 
 .onboarding-step {
@@ -450,6 +565,15 @@ h3 {
   font-weight: 600;
   margin-bottom: 24px;
   text-align: center;
+  color: #FFFFFF;
+  /* Тень текста — отделяет от фона */
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  /* Лёгкая подложка — визуально выделяет */
+  background: rgba(0, 0, 0, 0.15);
+  border-radius: 16px;
+  padding: 16px 20px;
+  margin-left: -8px;
+  margin-right: -8px;
 }
 
 .onboarding-options {
@@ -463,42 +587,72 @@ h3 {
 .onboarding-option {
   padding: 10px 20px;
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  color: white;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  color: var(--dark-text);
   cursor: pointer;
   transition: all 0.2s;
   font-size: 0.95rem;
 }
 
 .onboarding-option:hover {
-  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .onboarding-option.selected {
-  background: white;
-  color: var(--primary);
-  border-color: white;
+  background: var(--primary-muted);
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 4px 12px rgba(185, 28, 28, 0.35);
+}
+
+/* ===== Situation Input (текстовое поле ситуации) ===== */
+.situation-input {
+  width: 100%;
+  padding: 14px 18px;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--dark-text);
+  font-size: 0.95rem;
+  font-family: inherit;
+  line-height: 1.5;
+  outline: none;
+  resize: vertical;
+  min-height: 100px;
+  transition: all 0.2s;
+}
+
+.situation-input::placeholder {
+  color: var(--dark-text-muted);
+}
+
+.situation-input:focus {
+  border-color: rgba(168, 85, 247, 0.5);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(168, 85, 247, 0.15);
 }
 
 .onboarding-input {
   width: 100%;
   padding: 14px 20px;
   border-radius: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.1);
-  color: white;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: var(--dark-bg-light);
+  color: var(--dark-text);
   font-size: 1rem;
   outline: none;
   margin-bottom: 16px;
 }
 
 .onboarding-input::placeholder {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--dark-text-muted);
 }
 
 .onboarding-input:focus {
-  border-color: white;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(227, 6, 17, 0.15);
 }
 
 .onboarding-nav {
@@ -523,19 +677,20 @@ h3 {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--gradient);
+  background: var(--primary);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   flex-shrink: 0;
-  box-shadow: 0 2px 8px rgba(227, 6, 17, 0.3);
+  box-shadow: 0 2px 8px rgba(227, 6, 17, 0.25);
   transition: transform 0.2s;
 }
 
 .career-step:hover .career-step-number {
   transform: scale(1.1);
+  background: var(--primary-soft);
 }
 
 .career-step-content {
@@ -556,31 +711,32 @@ h3 {
 }
 
 .career-step-desc {
-  color: var(--tg-theme-hint-color, #666);
+  color: var(--dark-text-muted);
   font-size: 0.9rem;
 }
 
-/* ===== Profession Card ===== */
+/* ===== Profession Card (тёмная тема) ===== */
 .profession-card {
-  background: var(--tg-theme-section-bg-color, #fff);
+  background: var(--dark-bg-light);
   border-radius: 16px;
   padding: 20px;
   margin-bottom: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  border-left: 4px solid var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   transition: all 0.2s;
 }
 
 .profession-card:hover {
   transform: translateX(4px);
-  box-shadow: 0 4px 20px rgba(227, 6, 17, 0.15);
-  border-left-color: var(--primary-dark);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(227, 6, 17, 0.1);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
 .profession-title {
   font-weight: 600;
   font-size: 1.2rem;
   margin-bottom: 8px;
+  color: var(--dark-text);
 }
 
 .profession-match {

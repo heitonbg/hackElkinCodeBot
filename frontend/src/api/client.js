@@ -270,6 +270,35 @@ export const api = {
       }),
     });
   },
+
+  // === Daily Challenge ===
+
+  async getDailyChallenge(roleId = null) {
+    const url = roleId
+      ? `/daily/challenge?telegram_id=${getTelegramId()}&role_id=${roleId}`
+      : `/daily/challenge?telegram_id=${getTelegramId()}`;
+    return request(url);
+  },
+
+  async submitDailyAnswer(answer) {
+    return request('/daily/answer', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegram_id: getTelegramId(),
+        answer,
+      }),
+    });
+  },
+
+  async getDailyStreak() {
+    return request(`/daily/streak?telegram_id=${getTelegramId()}`);
+  },
+
+  // === Achievements ===
+
+  async getAchievements() {
+    return request(`/achievements/list?telegram_id=${getTelegramId()}`);
+  },
 };
 
 export { getTelegramId };

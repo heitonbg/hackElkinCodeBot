@@ -86,7 +86,7 @@ export default function Vacancies() {
           <div className="card" style={{ textAlign: 'center' }}>
             <div style={{ fontSize: '3rem', marginBottom: 12 }}>📡</div>
             <h3>{error.includes('Ничего') ? 'Ничего не найдено' : 'Ошибка'}</h3>
-            <p className="text-muted" style={{ marginBottom: 16 }}>{error}</p>
+            <p style={{ color: 'var(--dark-text-muted)', marginBottom: 16 }}>{error}</p>
             <button className="btn btn-primary" onClick={() => searchVacancies(searchQuery, city)}>
               🔄 Попробовать снова
             </button>
@@ -96,7 +96,7 @@ export default function Vacancies() {
         {/* Вакансии */}
         {!loading && !error && vacancies.length > 0 && (
           <>
-            <div className="text-muted text-sm" style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--dark-text-muted)', marginBottom: 12 }}>
               Найдено: {vacancies.length} вакансий{city ? ` • ${city}` : ' • Вся Россия'}
             </div>
             {vacancies.map((item, i) => {
@@ -131,23 +131,25 @@ export default function Vacancies() {
                       <div className="vacancy-salary">{vacancy.salary}</div>
                     )}
                     {vacancy.location && (
-                      <div className="text-muted text-sm">📍 {vacancy.location}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--dark-text-muted)' }}>📍 {vacancy.location}</div>
                     )}
                     {vacancy.description_snippet && (
-                      <div className="text-muted text-sm" style={{ marginTop: 8 }}>
+                      <div style={{ marginTop: 8, fontSize: '0.85rem', color: 'var(--dark-text-muted)' }}>
                         {vacancy.description_snippet.substring(0, 200)}...
                       </div>
                     )}
                     {item.missing_skills && item.missing_skills.length > 0 && (
                       <div style={{ marginTop: 8 }}>
-                        <div className="text-muted text-sm">Не хватает:</div>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 4 }}>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>Не хватает:</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                           {item.missing_skills.slice(0, 5).map((skill, j) => (
                             <span key={j} style={{
-                              background: '#ffe0e0',
-                              padding: '2px 6px',
-                              borderRadius: 4,
-                              fontSize: '0.8rem'
+                              background: 'var(--mts-red-bg)',
+                              color: 'var(--primary)',
+                              padding: '2px 8px',
+                              borderRadius: 6,
+                              fontSize: '0.8rem',
+                              fontWeight: 500,
                             }}>
                               {skill}
                             </span>

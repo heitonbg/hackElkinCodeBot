@@ -31,8 +31,9 @@ export default function ScenarioRunner() {
   const [answers, setAnswers] = useState({})
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [customAnswer, setCustomAnswer] = useState('')
+  const [situationAnswer, setSituationAnswer] = useState('')
   const [results, setResults] = useState({})
+  const [fading, setFading] = useState(false)
 
   useEffect(() => {
     console.log(' ScenarioRunner mounted, roles:', roles)
@@ -91,23 +92,46 @@ export default function ScenarioRunner() {
   const isLastQuestion = currentQuestionIndex >= (currentScenario?.questions?.length || 1) - 1
   const isLastRole = currentRoleIndex >= scenarios.length - 1
 
-  const handleAnswer = (option) => {
+  // Определяем тип вопроса: ситуация или тест
+  const isSituation = currentQuestion?.type === 'situation' || !currentQuestion?.options?.length
+
+  const handleTestAnswer = (option) => {
     if (!currentScenario) return
     const roleId = currentScenario.role_id
-    const answerText = option === 'Свой вариант' ? customAnswer : option
 
     setAnswers(prev => {
       const roleAnswers = prev[roleId] || []
       const existingIndex = roleAnswers.findIndex(a => a.question_id === currentQuestion.id)
       if (existingIndex >= 0) {
         const updated = [...roleAnswers]
-        updated[existingIndex] = { question_id: currentQuestion.id, answer: answerText }
+        updated[existingIndex] = { question_id: currentQuestion.id, answer: option }
         return { ...prev, [roleId]: updated }
       }
-      return { ...prev, [roleId]: [...roleAnswers, { question_id: currentQuestion.id, answer: answerText }] }
+      return { ...prev, [roleId]: [...roleAnswers, { question_id: currentQuestion.id, answer: option }] }
     })
 
-    setCustomAnswer('')
+    if (isLastQuestion) {
+      if (isLastRole) {
+        submitAll()
+      } else {
+        setCurrentRoleIndex(currentRoleIndex + 1)
+        setCurrentQuestionIndex(0)
+      }
+    } else {
+      setCurrentQuestionIndex(currentQuestionIndex + 1)
+    }
+  }
+
+  const handleSituationSubmit = () => {
+    if (!situationAnswer.trim() || !currentScenario) return
+    const roleId = currentScenario.role_id
+
+    setAnswers(prev => {
+      const roleAnswers = prev[roleId] || []
+      return { ...prev, [roleId]: [...roleAnswers, { question_id: currentQuestion.id, answer: situationAnswer.trim(), type: 'situation' }] }
+    })
+
+    setSituationAnswer('')
 
     if (isLastQuestion) {
       if (isLastRole) {
@@ -123,6 +147,7 @@ export default function ScenarioRunner() {
 
   async function submitAll() {
     setSubmitting(true)
+    setFading(true)
     try {
       const allResults = []
 
@@ -137,9 +162,9 @@ export default function ScenarioRunner() {
 
       setResults(allResults)
 
-      // Переход на дашборд — результаты мгновенны, AI в фоне
+      // Плавный переход на дашборд
       try { await api.completeRetest() } catch (e) {}
-      navigate('/dashboard')
+      setTimeout(() => navigate('/dashboard'), 400)
     } catch (err) {
       console.error('Submit error:', err)
       navigate('/dashboard')
@@ -171,59 +196,92 @@ export default function ScenarioRunner() {
       <div className="onboarding-step">
         {/* Прогресс */}
         <div style={{ marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: '0.85rem', opacity: 0.8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, fontSize: '0.85rem', color: 'var(--dark-text-muted)' }}>
             <span>{currentScenario.role_name}</span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="progress-bar" style={{ background: 'rgba(255,255,255,0.15)' }}>
-            <div className="progress-fill" style={{ width: `${progress}%`, background: 'var(--primary)' }} />
+          <div className="progress-bar" style={{ background: 'rgba(255,255,255,0.1)' }}>
+            <div className="progress-fill" style={{ width: `${progress}%` }} />
           </div>
         </div>
 
-        {/* Индикатор */}
+        {/* Индикатор типа вопроса */}
         <div style={{ textAlign: 'center', marginBottom: 12 }}>
           <span style={{
             padding: '4px 12px', borderRadius: 16,
-            background: 'rgba(255,255,255,0.1)', fontSize: '0.8rem',
+            background: isSituation ? 'rgba(168, 85, 247, 0.15)' : 'rgba(255,255,255,0.08)',
+            color: isSituation ? '#C084FC' : 'var(--dark-text-muted)',
+            fontSize: '0.8rem', fontWeight: isSituation ? 600 : 400,
           }}>
-            Роль {currentRoleIndex + 1}/{scenarios.length} • Вопрос {currentQuestionIndex + 1}/{currentScenario.questions.length}
+            {isSituation ? '🎭 Ситуация' : '❓ Тест'} • Роль {currentRoleIndex + 1}/{scenarios.length} • Вопрос {currentQuestionIndex + 1}/{currentScenario.questions.length}
           </span>
         </div>
 
         {/* Вопрос */}
-        <h2 className="onboarding-question" style={{ fontSize: '1.1rem', marginBottom: 20 }}>
+        <h2 className="onboarding-question">
           {currentQuestion?.text}
         </h2>
 
-        {/* Варианты */}
-        <div className="onboarding-options">
-          {(currentQuestion?.options || []).map((option, i) => {
-            const optionText = typeof option === 'string' ? option : option.text
-            return (
-              <button key={i} className="onboarding-option" onClick={() => handleAnswer(optionText)}
-                style={{ textAlign: 'left', fontSize: '0.9rem', padding: '12px 16px' }}>
-                {optionText}
-              </button>
-            )
-          })}
-        </div>
+        {/* ТЕСТ: варианты ответов (кнопки) */}
+        {!isSituation && currentQuestion?.options && (
+          <div className="onboarding-options">
+            {currentQuestion.options.map((option, i) => {
+              const optionText = typeof option === 'string' ? option : option.text
+              if (optionText === 'Свой вариант') return null
+              return (
+                <button key={i} className="onboarding-option" onClick={() => handleTestAnswer(optionText)}>
+                  {optionText}
+                </button>
+              )
+            })}
+          </div>
+        )}
 
-        {/* Свой вариант */}
-        {currentQuestion?.options?.some(o => (typeof o === 'string' ? o : o.text) === 'Свой вариант') && (
-          <div style={{ marginTop: 12 }}>
-            <input type="text" className="onboarding-input" placeholder="Твой вариант..."
-              value={customAnswer} onChange={(e) => setCustomAnswer(e.target.value)}
-              style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '2px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: 'white', fontSize: '0.95rem', outline: 'none' }}
+        {/* СИТУАЦИЯ: поле ввода */}
+        {isSituation && (
+          <div style={{ marginTop: 8 }}>
+            <textarea
+              className="situation-input"
+              placeholder="Опиши, как бы ты поступил в этой ситуации..."
+              value={situationAnswer}
+              onChange={(e) => setSituationAnswer(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                  e.preventDefault()
+                  handleSituationSubmit()
+                }
+              }}
+              rows={4}
             />
-            <button onClick={() => customAnswer.trim() && handleAnswer('Свой вариант')} disabled={!customAnswer.trim()}
-              style={{ marginTop: 8, padding: '10px 20px', borderRadius: 12, background: customAnswer.trim() ? 'white' : 'rgba(255,255,255,0.3)', color: 'var(--primary)', border: 'none', cursor: customAnswer.trim() ? 'pointer' : 'not-allowed', fontWeight: 600, width: '100%' }}>
-              Отправить
+            <button
+              className="btn btn-primary"
+              onClick={handleSituationSubmit}
+              disabled={!situationAnswer.trim()}
+              style={{ marginTop: 12 }}
+            >
+              {isLastQuestion && isLastRole ? '🚀 Завершить' : 'Отправить →'}
             </button>
+            <div style={{ textAlign: 'center', marginTop: 8, fontSize: '0.75rem', color: 'var(--dark-text-muted)' }}>
+              Ctrl + Enter для отправки
+            </div>
           </div>
         )}
 
         {submitting && <div className="loading"><div className="spinner" /></div>}
       </div>
+
+      {/* Fade overlay для плавного перехода */}
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: '#18181B',
+          opacity: fading ? 1 : 0,
+          transition: 'opacity 0.4s ease',
+          pointerEvents: 'none',
+          zIndex: 999,
+        }}
+      />
     </div>
   )
 }

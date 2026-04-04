@@ -54,6 +54,7 @@ export default function Onboarding() {
   const [textInput, setTextInput] = useState('')
   const [multiSelect, setMultiSelect] = useState([])
   const [loading, setLoading] = useState(false)
+  const [fading, setFading] = useState(false)
   const navigate = useNavigate()
 
   const currentStep = STEPS[step]
@@ -116,6 +117,7 @@ export default function Onboarding() {
 
   const handleSubmit = async (finalData) => {
     setLoading(true)
+    setFading(true)
     try {
       const payload = {
         telegram_id: 'demo_user',
@@ -127,8 +129,8 @@ export default function Onboarding() {
         career_goals: [],
       }
       await api.saveOnboarding(payload)
-      // После онбординга — на диагностику
-      navigate('/diagnostic')
+      // Плавный переход — навигация после fade
+      setTimeout(() => navigate('/diagnostic'), 400)
     } catch (err) {
       console.error('Onboarding error:', err)
       navigate('/career')
@@ -143,9 +145,9 @@ export default function Onboarding() {
       width: '100%',
       padding: '14px 18px',
       borderRadius: 14,
-      border: textInput ? '2px solid white' : '2px solid rgba(255,255,255,0.3)',
-      background: 'rgba(255,255,255,0.1)',
-      color: 'white',
+      border: textInput ? '2px solid var(--primary)' : '2px solid rgba(255,255,255,0.1)',
+      background: 'var(--dark-bg-light)',
+      color: 'var(--dark-text)',
       fontSize: currentStep.type === 'text' ? '1.05rem' : '0.95rem',
       outline: 'none',
     }
@@ -201,9 +203,9 @@ export default function Onboarding() {
                 width: '100%',
                 padding: '12px 16px',
                 borderRadius: 12,
-                border: textInput ? '2px solid white' : '2px solid rgba(255,255,255,0.3)',
-                background: 'rgba(255,255,255,0.1)',
-                color: 'white',
+                border: textInput ? '2px solid var(--primary)' : '2px solid rgba(255,255,255,0.1)',
+                background: 'var(--dark-bg-light)',
+                color: 'var(--dark-text)',
                 fontSize: '0.95rem',
                 outline: 'none',
               }}
@@ -219,14 +221,14 @@ export default function Onboarding() {
       <div className="onboarding-step">
         {/* Прогресс */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.85rem', opacity: 0.9 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.85rem', color: 'var(--dark-text-muted)' }}>
             <span>Шаг {step + 1} из {STEPS.length}</span>
             <span>{Math.round(((step + 1) / STEPS.length) * 100)}%</span>
           </div>
-          <div className="progress-bar" style={{ background: 'rgba(255,255,255,0.2)' }}>
+          <div className="progress-bar" style={{ background: 'rgba(255,255,255,0.1)' }}>
             <div
               className="progress-fill"
-              style={{ width: `${((step + 1) / STEPS.length) * 100}%`, background: 'white' }}
+              style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
             />
           </div>
         </div>
@@ -234,7 +236,7 @@ export default function Onboarding() {
         {/* Вопрос */}
         <h2 className="onboarding-question">{currentStep.question}</h2>
         {currentStep.subtitle && (
-          <p style={{ textAlign: 'center', opacity: 0.9, marginBottom: 24, fontSize: '0.95rem' }}>
+          <p style={{ textAlign: 'center', color: 'var(--dark-text-muted)', marginBottom: 24, fontSize: '0.95rem' }}>
             {currentStep.subtitle}
           </p>
         )}
@@ -251,7 +253,7 @@ export default function Onboarding() {
             <button
               className="btn btn-secondary"
               onClick={handleBack}
-              style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}
+              style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--dark-text)' }}
             >
               ← Назад
             </button>
@@ -260,10 +262,6 @@ export default function Onboarding() {
             className="btn btn-primary"
             onClick={handleNext}
             disabled={!canProceed || loading}
-            style={{
-              background: canProceed ? 'white' : 'rgba(255,255,255,0.3)',
-              color: 'var(--primary)',
-            }}
           >
             {loading ? '⏳ Сохраняю...' : isLastStep ? '🤖 Подобрать роли AI' : 'Далее →'}
           </button>
@@ -274,9 +272,9 @@ export default function Onboarding() {
           <button
             onClick={() => navigate('/career')}
             style={{
-              background: 'rgba(255,255,255,0.15)',
-              border: '1px solid rgba(255,255,255,0.3)',
-              color: 'white',
+              background: 'transparent',
+              border: '1px solid rgba(255,255,255,0.15)',
+              color: 'var(--dark-text-muted)',
               padding: '8px 16px',
               borderRadius: 12,
               cursor: 'pointer',
@@ -287,6 +285,19 @@ export default function Onboarding() {
           </button>
         </div>
       </div>
+
+      {/* Fade overlay для плавного перехода */}
+      <div
+        style={{
+          position: 'fixed',
+          inset: 0,
+          background: '#18181B',
+          opacity: fading ? 1 : 0,
+          transition: 'opacity 0.4s ease',
+          pointerEvents: 'none',
+          zIndex: 999,
+        }}
+      />
     </div>
   )
 }

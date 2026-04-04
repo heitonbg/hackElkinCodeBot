@@ -11,6 +11,16 @@ export default function DiagnosticTest() {
   const [submitting, setSubmitting] = useState(false)
   const [results, setResults] = useState(null)
 
+  // Profile collection step (after questions, before results)
+  const [collectProfile, setCollectProfile] = useState(false)
+  const [profileStep, setProfileStep] = useState(0)
+  const [profileData, setProfileData] = useState({ education: '', experience: '' })
+
+  const profileOptions = {
+    education: ['Нет образования (учусь в школе)', 'Школа (окончил)', 'Колледж / техникум', 'Бакалавриат', 'Магистратура', 'PhD / Аспирантура', 'Самоучка'],
+    experience: ['Нет опыта — ищу первую работу', 'Стажировка / практика (до 1 года)', 'Начальный уровень (1-2 года)', 'Средний уровень (3-5 лет)', 'Опытный специалист (5+ лет)'],
+  }
+
   useEffect(() => {
     loadQuestions()
   }, [])
@@ -34,24 +44,62 @@ export default function DiagnosticTest() {
     }
     setAnswers(newAnswers)
 
-    // Переход к следующему вопросу или завершение
+    // Переход к следующему вопросу или сбор профиля
     if (currentQuestion < questions.length - 1) {
       setCurrentQuestion(currentQuestion + 1)
     } else {
-      submitDiagnostic(newAnswers)
+      // После последнего вопроса — собираем профиль
+      setCollectProfile(true)
+      setProfileStep(0)
     }
   }
 
-  async function submitDiagnostic(finalAnswers) {
+  const handleProfileSelect = (value) => {
+    const field = profileStep === 0 ? 'education' : 'experience'
+    setProfileData(prev => ({ ...prev, [field]: value }))
+
+    if (profileStep === 0) {
+      setProfileStep(1)
+    } else {
+      // Оба поля заполнены — отправляем
+      submitDiagnostic(answers, profileData)
+    }
+  }
+
+  const handleProfileBack = () => {
+    if (profileStep > 0) {
+      setProfileStep(profileStep - 1)
+    } else {
+      setCollectProfile(false)
+    }
+  }
+
+  async function submitDiagnostic(finalAnswers, profile = null) {
     setSubmitting(true)
     try {
       const result = await api.runDiagnostic(finalAnswers)
       setResults(result)
-      // Сохраняем результаты для CareerPath
       localStorage.setItem('diagnostic_results', JSON.stringify(result))
+
+      // Сохраняем профиль в БД
+      if (profile) {
+        try {
+          const topCat = result.top_categories?.[0]?.category_name || ''
+          const topRoles = result.recommended_roles?.slice(0, 3).map(r => r.title) || []
+          await api.saveProfile({
+            education: profile.education,
+            field: topCat || 'IT и разработка',
+            experience: profile.experience,
+            interests: [],
+            skills: [],
+            career_goals: topRoles,
+          })
+        } catch (e) {
+          console.warn('Failed to save profile:', e)
+        }
+      }
     } catch (err) {
       console.error('Diagnostic error:', err)
-      // В случае ошибки — переходим на career
       navigate('/career')
     } finally {
       setSubmitting(false)
@@ -73,14 +121,14 @@ export default function DiagnosticTest() {
         <div className="onboarding-step">
           <div style={{ textAlign: 'center', marginBottom: 24 }}>
             <div style={{ fontSize: '4rem', marginBottom: 12 }}>🎯</div>
-            <h2 style={{ marginBottom: 8 }}>Твои подходящие роли</h2>
-            <p className="text-muted">На основе твоих ответов мы подобрали профессии</p>
+            <h2 style={{ marginBottom: 8, color: 'var(--dark-text)' }}>Твои подходящие роли</h2>
+            <p style={{ color: 'var(--dark-text-muted)', fontSize: '0.9rem' }}>На основе твоих ответов мы подобрали профессии</p>
           </div>
 
           {/* Топ категории */}
           {results.top_categories && results.top_categories.length > 0 && (
-            <div className="card" style={{ marginBottom: 16 }}>
-              <h3 style={{ marginBottom: 12 }}>📊 Твои сильные стороны</h3>
+            <div className="card" style={{ marginBottom: 16, background: 'var(--dark-bg-light)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+              <h3 style={{ marginBottom: 12, color: 'var(--dark-text)' }}>📊 Твои сильные стороны</h3>
               {results.top_categories.slice(0, 3).map((cat, i) => {
                 const emojiMap = {
                   'it_and_development': '💻', 'data_and_analytics': '📊', 'design_and_creative': '🎨',
@@ -93,7 +141,7 @@ export default function DiagnosticTest() {
                 return (
                   <div key={cat.category_id} style={{ marginBottom: i < 2 ? 12 : 0 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.9rem' }}>{emoji} {cat.category_name}</span>
+                      <span style={{ fontSize: '0.9rem', color: 'var(--dark-text)' }}>{emoji} {cat.category_name}</span>
                       <span style={{ fontWeight: 700, color: 'var(--primary)' }}>{cat.score}%</span>
                     </div>
                     <div className="progress-bar" style={{ background: 'rgba(255,255,255,0.1)', height: '8px', borderRadius: '4px' }}>
@@ -106,9 +154,9 @@ export default function DiagnosticTest() {
           )}
 
           {/* Рекомендованные роли */}
-          <div className="card">
-            <h3 style={{ marginBottom: 12 }}>💼 Рекомендуем попробовать</h3>
-            <p className="text-muted text-sm" style={{ marginBottom: 12 }}>
+          <div className="card" style={{ background: 'var(--dark-bg-light)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 16px rgba(0,0,0,0.2)' }}>
+            <h3 style={{ marginBottom: 12, color: 'var(--dark-text)' }}>💼 Рекомендуем попробовать</h3>
+            <p style={{ color: 'var(--dark-text-muted)', fontSize: '0.85rem', marginBottom: 12 }}>
               Выбери одну или несколько — по каждой будет тест
             </p>
 
@@ -135,8 +183,8 @@ export default function DiagnosticTest() {
                 <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ fontSize: '1.5rem' }}>{role.category_emoji || '💼'}</span>
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{role.title}</div>
-                    <div className="text-muted text-sm">{role.category_emoji || ''} {role.category}</div>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--dark-text)' }}>{role.title}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--dark-text-muted)' }}>{role.category_emoji || ''} {role.category}</div>
                   </div>
                 </div>
                 <span style={{
@@ -179,19 +227,71 @@ export default function DiagnosticTest() {
 
   const q = questions[currentQuestion]
 
+  // ===== СБОР ПРОФИЛЯ (после вопросов) =====
+  if (collectProfile && !results) {
+    const field = profileStep === 0 ? 'education' : 'experience'
+    const label = profileStep === 0 ? 'Какое у тебя образование?' : 'Какой у тебя опыт работы?'
+    const options = profileOptions[field]
+    const selected = profileData[field]
+
+    return (
+      <div className="onboarding-container">
+        <div className="onboarding-step">
+          {/* Прогресс */}
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.85rem', color: 'var(--dark-text-muted)' }}>
+              <span>{profileStep === 0 ? 'Почти готово!' : 'Ещё чуть-чуть!'}</span>
+              <span>Шаг {profileStep + 1} из 2</span>
+            </div>
+            <div className="progress-bar">
+              <div className="progress-fill" style={{ width: '100%' }} />
+            </div>
+          </div>
+
+          <h2 className="onboarding-question">{label}</h2>
+
+          <div className="onboarding-options">
+            {options.map(opt => (
+              <button
+                key={opt}
+                className={`onboarding-option ${selected === opt ? 'selected' : ''}`}
+                onClick={() => handleProfileSelect(opt)}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
+
+          <div className="onboarding-nav">
+            <button className="btn btn-secondary" onClick={handleProfileBack} style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--dark-text)' }}>
+              ← Назад
+            </button>
+          </div>
+
+          {submitting && (
+            <div className="loading" style={{ marginTop: 20 }}>
+              <div className="spinner" />
+              <p style={{ marginTop: 12, color: 'var(--dark-text-muted)' }}>Подбираю роли...</p>
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="onboarding-container">
       <div className="onboarding-step">
         {/* Прогресс */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.85rem', opacity: 0.9 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8, fontSize: '0.85rem', color: 'var(--dark-text-muted)' }}>
             <span>Вопрос {currentQuestion + 1} из {questions.length}</span>
             <span>{Math.round(progress)}%</span>
           </div>
-          <div className="progress-bar" style={{ background: 'rgba(255,255,255,0.2)' }}>
+          <div className="progress-bar">
             <div
               className="progress-fill"
-              style={{ width: `${progress}%`, background: 'white' }}
+              style={{ width: `${progress}%` }}
             />
           </div>
         </div>
@@ -219,7 +319,7 @@ export default function DiagnosticTest() {
             <button
               className="btn btn-secondary"
               onClick={handleBack}
-              style={{ background: 'rgba(255,255,255,0.2)', color: 'white' }}
+              style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--dark-text)' }}
             >
               ← Назад
             </button>
