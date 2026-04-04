@@ -61,7 +61,12 @@ export const api = {
 
   // Vacancies
   async searchVacancies(profession = '', location = '', limit = 20) {
-    return request(`/vacancies/search?profession=${profession}&location=${location}&limit=${limit}`);
+    const params = new URLSearchParams({
+      profession: profession,
+      location: location,
+      limit: String(limit),
+    });
+    return request(`/vacancies/search?${params}`);
   },
 
   async matchVacancies(profession = '', location = '') {
@@ -75,13 +80,153 @@ export const api = {
     });
   },
 
-  // MTS Vacancies
-  async getMtsVacancies(onlyIt = true) {
-    return request(`/vacancies/mts?only_it=${onlyIt}`);
+  // Quick Match (быстрый AI матчинг)
+  async quickMatch() {
+    return request('/career/quick-match', {
+      method: 'POST',
+      body: JSON.stringify({ telegram_id: getTelegramId() }),
+    });
   },
 
-  async getMatchedMtsVacancies(topN = 10) {
-    return request(`/vacancies/mts/match/${getTelegramId()}?top_n=${topN}`);
+  // AI Generate Roles (новая система)
+  async generateRoles() {
+    return request('/career/generate-roles', {
+      method: 'POST',
+      body: JSON.stringify({ telegram_id: getTelegramId() }),
+    });
+  },
+
+  // AI Generate Scenario (новая система)
+  async generateScenario(roleId, roleData = {}) {
+    return request('/career/generate-scenario', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegram_id: getTelegramId(),
+        role_id: roleId,
+        role_data: roleData,
+      }),
+    });
+  },
+
+  // Skill Recommendations
+  async getSkillRecommendations() {
+    return request(`/career/recommendations/${getTelegramId()}`);
+  },
+
+  // Scenarios
+  async getScenarios() {
+    return request('/scenarios/scenarios');
+  },
+
+  async getScenarioByRole(roleId) {
+    return request(`/scenarios/scenarios/${roleId}`);
+  },
+
+  async getHhScenarios() {
+    return request('/scenarios/scenarios/hh');
+  },
+
+  async getAllRoles() {
+    return request('/scenarios/all-roles');
+  },
+
+  async analyzeScenarioAnswers(roleId, answers) {
+    return request('/scenarios/scenarios/analyze', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegram_id: getTelegramId(),
+        role_id: roleId,
+        answers,
+      }),
+    });
+  },
+
+  // Leaderboard
+  async getLeaderboard(limit = 20) {
+    return request(`/scenarios/leaderboard?limit=${limit}`);
+  },
+
+  async getMyScenarioStats() {
+    return request(`/scenarios/my-scenarios/${getTelegramId()}`);
+  },
+
+  // Retest
+  async getRetestStatus() {
+    return request(`/scenarios/retest-status/${getTelegramId()}`);
+  },
+
+  async startRetest() {
+    return request(`/scenarios/retest-start/${getTelegramId()}`, { method: 'POST' });
+  },
+
+  async completeRetest() {
+    return request(`/scenarios/retest-complete/${getTelegramId()}`, { method: 'POST' });
+  },
+
+  // Save answers without analysis (for progressive loading)
+  async saveScenarioAnswers(roleId, answers) {
+    return request('/scenarios/scenarios/save-answers', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegram_id: getTelegramId(),
+        role_id: roleId,
+        answers,
+      }),
+    });
+  },
+
+  async analyzePendingAnswers() {
+    return request(`/scenarios/scenarios/analyze-pending/${getTelegramId()}`, { method: 'POST' });
+  },
+
+  async getPendingCount() {
+    return request(`/scenarios/scenarios/pending-count/${getTelegramId()}`);
+  },
+
+  // === Новые быстрые API (без AI) ===
+
+  // Rule-based матчинг ролей — мгновенно
+  async matchRoles() {
+    return request('/roles/match', {
+      method: 'POST',
+      body: JSON.stringify({ telegram_id: getTelegramId() }),
+    });
+  },
+
+  // Все роли
+  async getAllRoles() {
+    return request('/roles/all');
+  },
+
+  // Поиск ролей
+  async searchRoles(query) {
+    return request(`/roles/search?q=${encodeURIComponent(query)}`);
+  },
+
+  // Получить сценарий
+  async getScenario(roleId, level = 'junior') {
+    return request(`/roles/scenario/${roleId}?level=${level}`);
+  },
+
+  // Скоринг сценария (мгновенно, rule-based + фоновый AI)
+  async scoreScenario(roleId, level, answers) {
+    return request('/roles/score', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegram_id: getTelegramId(),
+        role_id: roleId,
+        level,
+        answers,
+      }),
+    });
+  },
+
+  // Получить AI-анализ (если готов)
+  async getAiAnalysis(roleId = null) {
+    const url = roleId
+      ? `/roles/ai-analysis/${getTelegramId()}?role_id=${roleId}`
+      : `/roles/ai-analysis/${getTelegramId()}`;
+    return request(url);
   },
 
   // Chat
@@ -98,6 +243,32 @@ export const api = {
 
   async getChatHistory(limit = 20) {
     return request(`/chat/history/${getTelegramId()}?limit=${limit}`);
+  },
+
+  // === Диагностика (онбординг) ===
+
+  async getDiagnosticQuestions() {
+    return request('/onboarding/questions');
+  },
+
+  async runDiagnostic(answers) {
+    return request('/onboarding/diagnostic', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegram_id: getTelegramId(),
+        answers,
+      }),
+    });
+  },
+
+  async saveProfile(profileData) {
+    return request('/onboarding/save-profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        telegram_id: getTelegramId(),
+        ...profileData,
+      }),
+    });
   },
 };
 

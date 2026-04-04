@@ -3,165 +3,207 @@ import { useNavigate } from 'react-router-dom'
 import { api } from '../api/client'
 
 export default function CareerPath() {
-  const [analysis, setAnalysis] = useState(null)
+  const [matchedRoles, setMatchedRoles] = useState([])
+  const [scenarioStats, setScenarioStats] = useState([])
   const [loading, setLoading] = useState(true)
+  const [selectedForTest, setSelectedForTest] = useState([])
   const navigate = useNavigate()
 
   useEffect(() => {
-    loadAnalysis()
+    loadData()
   }, [])
 
-  async function loadAnalysis() {
+  async function loadData() {
     try {
-      const result = await api.getAnalysisResult()
-      if (result && result.career_path && result.career_path.length > 0) {
-        setAnalysis(result)
-      } else {
-        // Нет анализа — перенаправляем на дашборд
-        navigate('/dashboard')
+      const profileData = await api.getProfile()
+      if (!profileData.exists) {
+        navigate('/diagnostic')
+        return
       }
+
+      // Проверяем, заполнен ли профиль (не просто существует, а есть данные)
+      const profile = profileData.profile || {}
+      const hasField = profile.field && profile.field.trim().length > 0
+      const hasInterests = (profile.interests || []).length > 0
+      const hasSkills = (profile.skills || []).length > 0
+      const hasGoals = (profile.career_goals || []).length > 0
+
+      // Если профиль пустой или почти пустой — отправляем на диагностику
+      if (!hasField && !hasInterests && !hasSkills && !hasGoals) {
+        navigate('/diagnostic')
+        return
+      }
+
+      // Сначала пробуем загрузить результаты диагностики
+      const storedResults = localStorage.getItem('diagnostic_results')
+      if (storedResults) {
+        try {
+          const parsed = JSON.parse(storedResults)
+          if (parsed.recommended_roles && parsed.recommended_roles.length > 0) {
+            setMatchedRoles(parsed.recommended_roles)
+            // Статистика сценариев
+            const stats = await api.getMyScenarioStats()
+            setScenarioStats(stats.results || [])
+            setLoading(false)
+            return
+          }
+        } catch (e) {
+          console.error('Failed to parse diagnostic results:', e)
+        }
+      }
+
+      // Fallback: rule-based матчинг
+      const rolesResult = await api.matchRoles()
+      setMatchedRoles(rolesResult.roles || [])
+
+      // Статистика сценариев
+      const stats = await api.getMyScenarioStats()
+      setScenarioStats(stats.results || [])
     } catch (err) {
-      console.error('Career path error:', err)
-      navigate('/dashboard')
+      console.error('CareerPath error:', err)
     } finally {
       setLoading(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="loading">
-        <div className="spinner" />
-      </div>
-    )
+  const toggleSelect = (role) => {
+    setSelectedForTest(prev => {
+      const exists = prev.find(r => r.role_id === role.role_id)
+      if (exists) return prev.filter(r => r.role_id !== role.role_id)
+      return [...prev, role]
+    })
   }
 
-  if (!analysis) {
-    return (
-      <div>
-        <div className="page-header">
-          <h1>🚀 Карьерный путь</h1>
-          <p>Твой персональный план развития</p>
-        </div>
-        <div style={{ padding: 16, textAlign: 'center' }}>
-          <div style={{ fontSize: '4rem', marginBottom: 16 }}>🗺️</div>
-          <h3>Сначала пройди анализ</h3>
-          <p className="text-muted" style={{ marginTop: 8 }}>
-            На дашборде нажми «Начать AI-анализ» чтобы получить персональный карьерный путь
-          </p>
-          <button className="btn btn-primary" style={{ marginTop: 16 }} onClick={() => navigate('/dashboard')}>
-            На дашборд
-          </button>
-        </div>
-      </div>
-    )
+  const startTest = () => {
+    if (selectedForTest.length === 0) {
+      // Если ничего не выбрано — берём топ-3 по совпадению
+      const top3 = matchedRoles.filter(r => r.match_percent >= 30).slice(0, 3)
+      navigate('/scenario-runner', { state: { roles: top3 } })
+    } else {
+      navigate('/scenario-runner', { state: { roles: selectedForTest } })
+    }
   }
+
+  if (loading) {
+    return <div className="loading"><div className="spinner" /></div>
+  }
+
+  const testedRoleIds = new Set(scenarioStats.map(s => s.role_id))
+  const untestedRoles = matchedRoles.filter(r => !testedRoleIds.has(r.role_id))
+  const testedRoles = matchedRoles.filter(r => testedRoleIds.has(r.role_id))
 
   return (
     <div>
       <div className="page-header">
-        <h1>🚀 Карьерный путь</h1>
-        <p>Твой персональный план развития</p>
+        <h1>🎯 Выбор ролей</h1>
+        <p>Выбери роли для тестирования</p>
       </div>
 
       <div style={{ padding: 16 }}>
-        {/* Профиль */}
-        {analysis.profile_summary && (
-          <div className="card">
-            <h3>🧠 Твой AI-профиль</h3>
-            <p style={{ marginTop: 8, lineHeight: 1.5, color: 'var(--tg-theme-hint-color)' }}>
-              {analysis.profile_summary}
-            </p>
-            {analysis.personality_type && (
-              <div style={{ marginTop: 8 }}>
-                <span className="tag tag-primary">{analysis.personality_type}</span>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Шаги карьерного пути */}
-        {analysis.career_path && analysis.career_path.length > 0 && (
+        {/* Непротестированные роли */}
+        {untestedRoles.length > 0 && (
           <div className="card">
-            <h3>📋 План развития</h3>
-            <div style={{ marginTop: 16 }}>
-              {analysis.career_path.map((step, i) => (
-                <div key={i} className="career-step">
-                  <div className="career-step-number">{step.step}</div>
-                  <div className="career-step-content">
-                    <div className="career-step-title">{step.title}</div>
-                    {step.duration && (
-                      <div className="career-step-duration">⏱️ {step.duration}</div>
-                    )}
-                    <div className="career-step-desc" style={{ lineHeight: 1.5 }}>{step.description}</div>
+            <h3>🆕 Доступные роли ({untestedRoles.length})</h3>
+            <p className="text-muted text-sm" style={{ marginBottom: 12 }}>
+              Выбери одну или несколько — по каждой будет тест
+            </p>
+
+            {untestedRoles.slice(0, 15).map((role, i) => (
+              <button
+                key={role.role_id}
+                onClick={() => toggleSelect(role)}
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 14px', borderRadius: 10, marginBottom: i < untestedRoles.length - 1 ? 8 : 0,
+                  border: selectedForTest.find(r => r.role_id === role.role_id)
+                    ? '2px solid var(--primary)'
+                    : '2px solid rgba(255,255,255,0.12)',
+                  background: selectedForTest.find(r => r.role_id === role.role_id)
+                    ? 'rgba(227,6,17,0.1)'
+                    : 'rgba(255,255,255,0.04)',
+                  cursor: 'pointer', width: '100%', textAlign: 'left',
+                }}
+              >
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <span style={{ fontSize: '1.3rem' }}>{role.category_emoji || '💼'}</span>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{role.title}</div>
+                    <div className="text-muted text-sm">{role.category_emoji || ''} {role.category} • {role.reason}</div>
                   </div>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Навыки для развития */}
-        {analysis.missing_skills && analysis.missing_skills.length > 0 && (
-          <div className="card">
-            <h3>⚡ Навыки для развития</h3>
-            <p className="text-muted text-sm" style={{ marginBottom: 8 }}>
-              Эти навыки повысят твоё соответствие вакансиям
-            </p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {analysis.missing_skills.map((skill, i) => (
-                <span key={i} className="tag" style={{ background: 'rgba(225, 112, 85, 0.15)', color: 'var(--danger)' }}>
-                  📚 {skill}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Рекомендации */}
-        {analysis.recommendations && analysis.recommendations.length > 0 && (
-          <div className="card">
-            <h3>💡 Что делать прямо сейчас</h3>
-            <div style={{ marginTop: 8 }}>
-              {analysis.recommendations.map((rec, i) => (
-                <div key={i} style={{
-                  display: 'flex',
-                  gap: 10,
-                  padding: '10px 12px',
-                  background: 'var(--tg-theme-secondary-bg-color)',
-                  borderRadius: 10,
-                  marginBottom: i < analysis.recommendations.length - 1 ? 8 : 0,
-                  fontSize: '0.9rem',
-                  lineHeight: 1.4,
-                }}>
-                  <span style={{ fontSize: '1.2rem' }}>{['🎯', '', '💻', '🤝', ''][i] || '•'}</span>
-                  <span style={{ flex: 1 }}>{rec}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Подходящие профессии */}
-        {analysis.professions && analysis.professions.length > 0 && (
-          <div className="card">
-            <h3>🎯 Подходящие профессии</h3>
-            {analysis.professions.map((prof, i) => (
-              <div key={i} className="profession-card" style={{ marginTop: i > 0 ? 12 : 0 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div className="profession-title">{prof.title}</div>
-                  <span className={`vacancy-match ${prof.match_percent >= 70 ? 'vacancy-match-high' : prof.match_percent >= 50 ? 'vacancy-match-medium' : 'vacancy-match-low'}`}>
-                    {prof.match_percent}%
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{
+                    padding: '3px 8px', borderRadius: 12, fontSize: '0.75rem', fontWeight: 700,
+                    background: role.match_percent >= 70 ? 'rgba(0,184,148,0.15)' : role.match_percent >= 50 ? 'rgba(253,203,110,0.15)' : 'rgba(225,112,85,0.15)',
+                    color: role.match_percent >= 70 ? 'var(--success)' : role.match_percent >= 50 ? '#e17055' : 'var(--danger)',
+                  }}>
+                    {role.match_percent}%
+                  </span>
+                  <span style={{
+                    width: 20, height: 20, borderRadius: '50%',
+                    border: `2px solid ${selectedForTest.find(r => r.role_id === role.role_id) ? 'var(--primary)' : 'rgba(255,255,255,0.25)'}`,
+                    background: selectedForTest.find(r => r.role_id === role.role_id) ? 'var(--primary)' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: 'white', fontSize: '0.65rem', fontWeight: 700,
+                  }}>
+                    {selectedForTest.find(r => r.role_id === role.role_id) && '✓'}
                   </span>
                 </div>
-                <div className="profession-reason" style={{ marginTop: 6 }}>{prof.reason}</div>
-                {prof.salary_range && (
-                  <div className="profession-salary" style={{ marginTop: 6 }}>💰 {prof.salary_range}</div>
-                )}
-              </div>
+              </button>
             ))}
           </div>
         )}
+
+        {/* Протестированные роли */}
+        {testedRoles.length > 0 && (
+          <div className="card">
+            <h3>✅ Пройденные роли ({testedRoles.length})</h3>
+            {testedRoles.slice(0, 10).map((role, i) => {
+              const stat = scenarioStats.find(s => s.role_id === role.role_id)
+              return (
+                <div key={role.role_id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 0',
+                  borderBottom: i < testedRoles.length - 1 ? '1px solid var(--tg-theme-secondary-bg-color)' : 'none',
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{role.title}</div>
+                    {stat?.feedback && <div className="text-muted text-sm">{stat.feedback}</div>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{
+                      padding: '3px 10px', borderRadius: 16, fontSize: '0.8rem', fontWeight: 700,
+                      background: stat?.match_score >= 70 ? 'rgba(0,184,148,0.15)' : stat?.match_score >= 40 ? 'rgba(253,203,110,0.15)' : 'rgba(225,112,85,0.15)',
+                      color: stat?.match_score >= 70 ? 'var(--success)' : stat?.match_score >= 40 ? '#e17055' : 'var(--danger)',
+                    }}>
+                      {stat?.match_score}%
+                    </span>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ padding: '3px 8px', fontSize: '0.7rem' }}
+                      onClick={() => navigate('/scenario-runner', { state: { roles: [role] } })}
+                    >
+                      ↻
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Кнопка начала теста */}
+        <button
+          className="btn btn-primary"
+          style={{ width: '100%', marginTop: 12 }}
+          onClick={startTest}
+        >
+          🚀 {selectedForTest.length > 0
+            ? `Начать тест (${selectedForTest.length} ${selectedForTest.length === 1 ? 'роль' : selectedForTest.length < 5 ? 'роли' : 'ролей'})`
+            : 'Начать тест (топ-3 роли)'}
+        </button>
+
       </div>
     </div>
   )

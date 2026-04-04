@@ -1,7 +1,7 @@
 import os
 import logging
 from dotenv import load_dotenv
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # Загружаем .env из корня проекта
@@ -21,24 +21,24 @@ logger = logging.getLogger(__name__)
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /start"""
     user = update.effective_user
+    logger.info(f"Получена команда /start от {user.first_name} (id={user.id})")
+
+    keyboard = [
+        [InlineKeyboardButton("🚀 Открыть Career Navigator", url=FRONTEND_URL)],
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(
-        f"🧠 *Привет, {user.first_name}!*\n\n"
-        f"Я — AI Career Navigator, твой персональный карьерный навигатор!\n\n"
-        f"🎯 *Что я умею:*\n"
-        f"• Анализирую твои навыки и интересы\n"
-        f"• Подбираю подходящие профессии\n"
-        f"• Строю карьерный путь\n"
-        f"• Ищу вакансии на HH.ru\n"
-        f"• Отвечаю на вопросы о карьере\n\n"
-        f"📱 *Чтобы начать:*\n"
-        f"1. Открой {FRONTEND_URL} в браузере\n"
-        f"2. Пройди онбординг\n"
-        f"3. Получи AI-рекомендации\n\n"
-        f"💡 *Команды:*\n"
-        f"/start — главное меню\n"
-        f"/help — справка",
-        parse_mode="Markdown"
+        f"Привет, {user.first_name}! 👋\n\n"
+        f"Я — Career Navigator, твой помощник в выборе профессии.\n\n"
+        f"📌 *Что я умею:*\n"
+        f"• Подберу подходящие роли по твоим навыкам\n"
+        f"• Дам пройти тестирование по каждой роли\n"
+        f"• Покажу реальные вакансии с HH.ru\n"
+        f"• Отслежу твой прогресс и рейтинг\n\n"
+        f"👇 Нажми кнопку ниже, чтобы начать:",
+        parse_mode="Markdown",
+        reply_markup=reply_markup
     )
 
 
@@ -46,14 +46,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Команда /help"""
     await update.message.reply_text(
         f"📖 *Как пользоваться:*\n\n"
-        f"1. Открой {FRONTEND_URL} в браузере\n"
-        f"2. Пройди короткий онбординг\n"
-        f"3. Получи персональные рекомендации\n\n"
-        f"🔗 *Ссылки:*\n"
-        f"• Приложение: {FRONTEND_URL}\n"
-        f"• Профиль: {FRONTEND_URL}/dashboard\n"
-        f"• Чат с AI: {FRONTEND_URL}/chat",
-        parse_mode="Markdown"
+        f"1. Нажми кнопку ниже или открой {FRONTEND_URL}\n"
+        f"2. Пройди короткий тест (4 вопроса)\n"
+        f"3. Выбери интересующие роли\n"
+        f"4. Пройди тестирование\n"
+        f"5. Смотри результаты и вакансии\n\n"
+        f"💡 Перетест доступен через 7 дней.",
+        parse_mode="Markdown",
+        reply_markup=InlineKeyboardMarkup([[
+            InlineKeyboardButton("🚀 Открыть", url=FRONTEND_URL)
+        ]])
     )
 
 
@@ -61,7 +63,11 @@ def main():
     """Запуск бота"""
     if not BOT_TOKEN:
         logger.error("TG_BOT_TOKEN не установлен! Проверь .env файл.")
+        print("❌ ОШИБКА: TG_BOT_TOKEN не установлен. Создай .env файл из .env.example")
         return
+
+    logger.info(f"🤖 Бот запущен! Токен: {BOT_TOKEN[:10]}...")
+    print(f"✅ Бот запущен. Frontend: {FRONTEND_URL}")
 
     app = ApplicationBuilder().token(BOT_TOKEN).build()
 
@@ -69,7 +75,6 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
 
-    logger.info("🤖 Бот запущен!")
     app.run_polling()
 
 
