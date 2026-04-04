@@ -126,6 +126,33 @@ class Database:
                 )
             """)
 
+            # Таблица ежедневных челленджей
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS daily_challenges (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    role_id TEXT,
+                    situation_text TEXT,
+                    user_answer TEXT,
+                    ai_score INTEGER,
+                    ai_feedback TEXT,
+                    challenge_date TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
+            # Таблица достижений (бейджей)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    achievement_id TEXT,
+                    unlocked_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
             await db.commit()
 
     async def save_user(self, telegram_id: str, data: dict):
@@ -410,5 +437,160 @@ class Database:
                         item["created_at"] = r[2]
                         result.append(item)
                     return result
+
+    # ===== Daily Challenges =====
+
+    async def save_daily_challenge(self, telegram_id: str, role_id: str, situation: str, date_str: str):
+        """Сохранить сгенерированную ситуацию"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT INTO daily_challenges (telegram_id, role_id, situation_text, challenge_date, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (telegram_id, role_id, situation, date_str, datetime.now().isoformat()))
+            await db.commit()
+
+    async def get_daily_challenge(self, telegram_id: str, date_str: str):
+        """Получить ситуацию на сегодня"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT id, role_id, situation_text, user_answer, ai_score, ai_feedback, challenge_date
+                FROM daily_challenges
+                WHERE telegram_id = ? AND challenge_date = ?
+                ORDER BY id DESC LIMIT 1
+            """, (telegram_id, date_str)) as cursor:
+                row = await cursor.fetchone()
+                if not row:
+                    return None
+                return {
+                    "id": row[0],
+                    "role_id": row[1],
+                    "situation_text": row[2],
+                    "user_answer": row[3],
+                    "ai_score": row[4],
+                    "ai_feedback": row[5],
+                    "challenge_date": row[6],
+                    "answered": row[3] is not None,
+                }
+
+    async def submit_daily_answer(self, challenge_id: int, user_answer: str, ai_score: int, ai_feedback: str):
+        """Сохранить ответ на ситуацию"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                UPDATE daily_challenges
+                SET user_answer = ?, ai_score = ?, ai_feedback = ?, created_at = ?
+                WHERE id = ?
+            """, (user_answer, ai_score, ai_feedback, datetime.now().isoformat(), challenge_id))
+            await db.commit()
+
+    async def get_daily_streak(self, telegram_id: str):
+        """Посчитать streak дней подряд"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT DISTINCT challenge_date
+                FROM daily_challenges
+                WHERE telegram_id = ? AND user_answer IS NOT NULL
+                ORDER BY challenge_date DESC
+            """, (telegram_id,)) as cursor:
+                rows = await cursor.fetchall()
+                if not rows:
+                    return {"streak": 0, "best_streak": 0, "total_completed": 0}
+
+                dates = sorted([r[0] for r in rows], reverse=True)
+                total = len(dates)
+
+                # Текущий streak
+                streak = 0
+                from datetime import datetime, timedelta
+                today = datetime.now().date().isoformat()
+                yesterday = (datetime.now().date() - timedelta(days=1)).isoformat()
+
+                if dates[0] == today or dates[0] == yesterday:
+                    streak = 1
+                    for i in range(1, len(dates)):
+                        prev = datetime.fromisoformat(dates[i-1]).date()
+                        curr = datetime.fromisoformat(dates[i]).date()
+                        if (prev - curr).days == 1:
+                            streak += 1
+                        else:
+                            break
+
+                # Лучший streak
+                best = 1
+                current = 1
+                for i in range(1, len(dates)):
+                    prev = datetime.fromisoformat(dates[i-1]).date()
+                    curr = datetime.fromisoformat(dates[i]).date()
+                    if (prev - curr).days == 1:
+                        current += 1
+                        best = max(best, current)
+                    else:
+                        current = 1
+
+                return {
+                    "streak": streak,
+                    "best_streak": best,
+                    "total_completed": total,
+                }
+
+    async def get_daily_history(self, telegram_id: str, limit: int = 10):
+        """Получить историю челленджей"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT role_id, situation_text, user_answer, ai_score, ai_feedback, challenge_date
+                FROM daily_challenges
+                WHERE telegram_id = ? AND user_answer IS NOT NULL
+                ORDER BY challenge_date DESC
+                LIMIT ?
+            """, (telegram_id, limit)) as cursor:
+                rows = await cursor.fetchall()
+                return [
+                    {
+                        "role_id": r[0],
+                        "situation_text": r[1],
+                        "user_answer": r[2],
+                        "ai_score": r[3],
+                        "ai_feedback": r[4],
+                        "challenge_date": r[5],
+                    }
+                    for r in rows
+                ]
+
+    # ===== Achievements (Бейджи) =====
+
+    async def unlock_achievement(self, telegram_id: str, achievement_id: str):
+        """Разблокировать достижение (если ещё не получено)"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT id FROM user_achievements WHERE telegram_id = ? AND achievement_id = ?
+            """, (telegram_id, achievement_id)) as cursor:
+                existing = await cursor.fetchone()
+                if not existing:
+                    await db.execute("""
+                        INSERT INTO user_achievements (telegram_id, achievement_id, unlocked_at)
+                        VALUES (?, ?, ?)
+                    """, (telegram_id, achievement_id, datetime.now().isoformat()))
+                    await db.commit()
+                    return True  # Новое достижение!
+                return False  # Уже есть
+
+    async def get_user_achievements(self, telegram_id: str):
+        """Получить все разблокированные достижения пользователя"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT achievement_id, unlocked_at
+                FROM user_achievements
+                WHERE telegram_id = ?
+                ORDER BY unlocked_at DESC
+            """, (telegram_id,)) as cursor:
+                rows = await cursor.fetchall()
+                return [{"achievement_id": r[0], "unlocked_at": r[1]} for r in rows]
+
+    async def has_achievement(self, telegram_id: str, achievement_id: str) -> bool:
+        """Проверить есть ли достижение"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT id FROM user_achievements WHERE telegram_id = ? AND achievement_id = ?
+            """, (telegram_id, achievement_id)) as cursor:
+                return await cursor.fetchone() is not None
 
 db = Database()

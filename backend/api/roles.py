@@ -9,6 +9,7 @@ from typing import List, Optional
 from services.role_matcher import match_roles, get_all_roles, search_roles, get_role_scenario
 from services.scenario_scorer import score_scenario, score_scenario_with_feedback
 from services.async_analyzer import analyze_scenario_results
+from services.achievement_service import check_test_achievements
 from database.db import db
 
 logger = logging.getLogger(__name__)
@@ -117,10 +118,26 @@ async def score_scenario_api(data: ScenarioScoreRequest):
             analyze_scenario_results(data.telegram_id, data.role_id, result, user_profile)
         )
 
+    # Проверяем достижения
+    stats = await db.get_user_scenario_stats(data.telegram_id)
+    total_tests = len(stats)
+    unique_roles = len(set(s["role_id"] for s in stats))
+    avg_score = sum(s["match_score"] for s in stats) / max(1, len(stats))
+
+    new_achievements = await check_test_achievements(
+        telegram_id=data.telegram_id,
+        role_id=data.role_id,
+        score=result["match_score"],
+        total_tests=total_tests,
+        unique_roles=unique_roles,
+        avg_score=avg_score,
+    )
+
     return {
         "role_id": data.role_id,
         "title": scenario.get("title", ""),
         "level": data.level,
+        "new_achievements": new_achievements,
         **result,
     }
 

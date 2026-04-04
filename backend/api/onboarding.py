@@ -11,6 +11,7 @@ from services.diagnostic_scorer import (
     save_diagnostic_result,
 )
 from services.role_matcher import get_all_roles, search_roles
+from services.achievement_service import check_diagnostic_achievement
 from database.db import db
 
 logger = logging.getLogger(__name__)
@@ -73,8 +74,11 @@ async def run_diagnostic(data: DiagnosticRequest):
     
     # Сохраняем результаты диагностики
     save_diagnostic_result(data.telegram_id, answers, results)
-    
-    return results
+
+    # Проверяем достижение
+    new_achievements = await check_diagnostic_achievement(data.telegram_id)
+
+    return {**results, "new_achievements": new_achievements}
 
 
 @router.post("/save-profile")
