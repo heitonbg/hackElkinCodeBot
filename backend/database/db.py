@@ -2,19 +2,45 @@ import aiosqlite
 import os
 import json
 from datetime import datetime
+from dotenv import load_dotenv
 
-DATABASE_PATH = os.getenv("DATABASE_PATH", "career_navigator.db")
+# Загружаем .env из корня проекта
+_env_path = os.path.join(os.path.dirname(__file__), '..', '..', '.env')
+load_dotenv(dotenv_path=_env_path, override=True)
+
+# Определяем путь к БД
+_db_path = os.getenv("DATABASE_PATH")
+if not _db_path:
+    # По умолчанию — в директории backend
+    _db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "career_navigator.db")
+
+# Если путь /data/ — создаём директорию
+if _db_path.startswith("/data/"):
+    os.makedirs("/data", exist_ok=True)
+
+DATABASE_PATH = _db_path
+
 
 class Database:
     def __init__(self):
         self.db_path = DATABASE_PATH
 
     async def init_db(self):
+        # Создаём директорию если её нет
+        db_dir = os.path.dirname(self.db_path)
+        if db_dir and not os.path.exists(db_dir):
+            os.makedirs(db_dir, exist_ok=True)
+
         async with aiosqlite.connect(self.db_path) as db:
             # Таблица пользователей
             await db.execute("""
                 CREATE TABLE IF NOT EXISTS users (
                     telegram_id TEXT PRIMARY KEY,
+                    username TEXT,
+                    first_name TEXT,
+                    last_name TEXT,
+                    photo_url TEXT,
+                    language_code TEXT,
                     education TEXT,
                     field TEXT,
                     experience TEXT,
@@ -64,19 +90,123 @@ class Database:
                     FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
                 )
             """)
-            
+
+            # Таблица результатов сценариев
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS scenario_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    role_id TEXT,
+                    match_score REAL,
+                    strengths TEXT,
+                    weaknesses TEXT,
+                    feedback TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
+            # Таблица кулдауна перетеста
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS retest_cooldowns (
+                    telegram_id TEXT PRIMARY KEY,
+                    last_test_date TEXT,
+                    next_available_date TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
+            # Таблица сырых ответов сценариев (ждут анализа)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS scenario_answers (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    role_id TEXT,
+                    answers TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
+            # Таблица AI-сгенерированных сценариев
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS generated_scenarios (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    role_id TEXT,
+                    scenario_json TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
+            # Таблица AI-анализов результатов сценариев
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS ai_analyses (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    role_id TEXT,
+                    analysis_json TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
+            # Таблица ежедневных челленджей
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS daily_challenges (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    role_id TEXT,
+                    situation_text TEXT,
+                    user_answer TEXT,
+                    ai_score INTEGER,
+                    ai_feedback TEXT,
+                    challenge_date TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
+            # Таблица достижений (бейджей)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS user_achievements (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    achievement_id TEXT,
+                    unlocked_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
+            # Таблица результатов диагностики
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS diagnostic_results (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id TEXT,
+                    full_result TEXT,
+                    created_at TEXT,
+                    FOREIGN KEY (telegram_id) REFERENCES users(telegram_id)
+                )
+            """)
+
             await db.commit()
 
     async def save_user(self, telegram_id: str, data: dict):
         async with aiosqlite.connect(self.db_path) as db:
             await db.execute("""
                 INSERT OR REPLACE INTO users
-                (telegram_id, education, field, experience, interests, skills, career_goals, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?,
+                (telegram_id, username, first_name, last_name, photo_url, language_code, education, field, experience, interests, skills, career_goals, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?,
                     COALESCE((SELECT created_at FROM users WHERE telegram_id = ?), ?),
                     ?)
             """, (
                 telegram_id,
+                data.get("username"),
+                data.get("first_name"),
+                data.get("last_name"),
+                data.get("photo_url"),
+                data.get("language_code"),
                 data.get("education"),
                 data.get("field"),
                 data.get("experience"),
@@ -86,6 +216,79 @@ class Database:
                 telegram_id,
                 datetime.now().isoformat(),
                 datetime.now().isoformat()
+            ))
+            await db.commit()
+
+    async def save_onboarding_data(self, telegram_id: str, data: dict):
+        """Сохранить только данные онбординга (education, field, experience, interests, skills, career_goals).
+        НЕ трогает Telegram поля (username, first_name, last_name, photo_url).
+        """
+        async with aiosqlite.connect(self.db_path) as db:
+            # Проверяем существует ли пользователь
+            async with db.execute("SELECT telegram_id FROM users WHERE telegram_id = ?", (telegram_id,)) as cursor:
+                exists = await cursor.fetchone()
+
+            if exists:
+                # UPDATE только полей онбординга
+                await db.execute("""
+                    UPDATE users SET
+                        education = ?,
+                        field = ?,
+                        experience = ?,
+                        interests = ?,
+                        skills = ?,
+                        career_goals = ?,
+                        updated_at = ?
+                    WHERE telegram_id = ?
+                """, (
+                    data.get("education"),
+                    data.get("field"),
+                    data.get("experience"),
+                    json.dumps(data.get("interests", [])),
+                    json.dumps(data.get("skills", [])),
+                    json.dumps(data.get("career_goals", [])),
+                    datetime.now().isoformat(),
+                    telegram_id
+                ))
+            else:
+                # INSERT с пустыми Telegram полями
+                await db.execute("""
+                    INSERT INTO users
+                    (telegram_id, username, first_name, last_name, photo_url, language_code, education, field, experience, interests, skills, career_goals, created_at, updated_at)
+                    VALUES (?, NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    telegram_id,
+                    data.get("education"),
+                    data.get("field"),
+                    data.get("experience"),
+                    json.dumps(data.get("interests", [])),
+                    json.dumps(data.get("skills", [])),
+                    json.dumps(data.get("career_goals", [])),
+                    datetime.now().isoformat(),
+                    datetime.now().isoformat()
+                ))
+            await db.commit()
+
+    async def update_telegram_profile(self, telegram_id: str, tg_data: dict):
+        """Обновить только Telegram-данные профиля (username, first_name, last_name, photo_url, language_code)"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                UPDATE users 
+                SET username = COALESCE(?, username),
+                    first_name = COALESCE(?, first_name),
+                    last_name = COALESCE(?, last_name),
+                    photo_url = COALESCE(?, photo_url),
+                    language_code = COALESCE(?, language_code),
+                    updated_at = ?
+                WHERE telegram_id = ?
+            """, (
+                tg_data.get("username"),
+                tg_data.get("first_name"),
+                tg_data.get("last_name"),
+                tg_data.get("photo_url"),
+                tg_data.get("language_code"),
+                datetime.now().isoformat(),
+                telegram_id
             ))
             await db.commit()
 
@@ -139,5 +342,410 @@ class Database:
                 analysis = json.loads(row[0]) if row[0] else {}
                 analysis["created_at"] = row[1]
                 return analysis
+
+    async def save_scenario_result(self, telegram_id: str, role_id: str, result: dict):
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT INTO scenario_results (telegram_id, role_id, match_score, strengths, weaknesses, feedback, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                telegram_id,
+                role_id,
+                result.get("match_score", 0),
+                json.dumps(result.get("strengths", []), ensure_ascii=False),
+                json.dumps(result.get("weaknesses", []), ensure_ascii=False),
+                result.get("feedback", ""),
+                datetime.now().isoformat()
+            ))
+            await db.commit()
+
+    async def get_leaderboard(self, limit: int = 20):
+        """Топ пользователей по среднему match_score"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT telegram_id, 
+                       ROUND(AVG(match_score), 1) as avg_score,
+                       COUNT(*) as scenarios_completed
+                FROM scenario_results
+                GROUP BY telegram_id
+                ORDER BY avg_score DESC
+                LIMIT ?
+            """, (limit,)) as cursor:
+                rows = await cursor.fetchall()
+                return [
+                    {
+                        "telegram_id": r[0],
+                        "avg_score": r[1],
+                        "scenarios_completed": r[2]
+                    }
+                    for r in rows
+                ]
+
+    async def get_user_scenario_stats(self, telegram_id: str):
+        """Статистика пользователя по сценариям"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT role_id, match_score, feedback, created_at
+                FROM scenario_results
+                WHERE telegram_id = ?
+                ORDER BY created_at DESC
+            """, (telegram_id,)) as cursor:
+                rows = await cursor.fetchall()
+                return [
+                    {
+                        "role_id": r[0],
+                        "match_score": r[1],
+                        "feedback": r[2],
+                        "created_at": r[3]
+                    }
+                    for r in rows
+                ]
+
+    async def set_retest_cooldown(self, telegram_id: str, days: int = 7):
+        """Установить кулдаун перетеста"""
+        from datetime import datetime, timedelta
+        now = datetime.now()
+        next_date = now + timedelta(days=days)
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT OR REPLACE INTO retest_cooldowns (telegram_id, last_test_date, next_available_date)
+                VALUES (?, ?, ?)
+            """, (telegram_id, now.isoformat(), next_date.isoformat()))
+            await db.commit()
+
+    async def get_retest_cooldown(self, telegram_id: str):
+        """Проверить доступность перетеста"""
+        from datetime import datetime
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT last_test_date, next_available_date
+                FROM retest_cooldowns
+                WHERE telegram_id = ?
+            """, (telegram_id,)) as cursor:
+                row = await cursor.fetchone()
+                if not row:
+                    return {"can_retest": True}
+                now = datetime.now()
+                next_date = datetime.fromisoformat(row[1])
+                return {
+                    "can_retest": now >= next_date,
+                    "last_test_date": row[0],
+                    "next_available_date": row[1],
+                    "days_remaining": max(0, (next_date - now).days),
+                }
+
+    async def save_scenario_answers(self, telegram_id: str, role_id: str, answers: list):
+        """Сохранить сырые ответы сценария (для последующего анализа)"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT INTO scenario_answers (telegram_id, role_id, answers, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (
+                telegram_id,
+                role_id,
+                json.dumps(answers, ensure_ascii=False),
+                datetime.now().isoformat()
+            ))
+            await db.commit()
+
+    async def get_pending_scenario_answers(self, telegram_id: str):
+        """Получить неотанализированные ответы"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT id, role_id, answers
+                FROM scenario_answers
+                WHERE telegram_id = ?
+                ORDER BY id ASC
+            """, (telegram_id,)) as cursor:
+                rows = await cursor.fetchall()
+                return [
+                    {"id": r[0], "role_id": r[1], "answers": json.loads(r[2])}
+                    for r in rows
+                ]
+
+    async def delete_scenario_answers(self, telegram_id: str):
+        """Удалить сырые ответы после анализа"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("DELETE FROM scenario_answers WHERE telegram_id = ?", (telegram_id,))
+            await db.commit()
+
+    async def save_generated_scenario(self, telegram_id: str, role_id: str, scenario: dict):
+        """Сохранить AI-сгенерированный сценарий"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT INTO generated_scenarios (telegram_id, role_id, scenario_json, created_at)
+                VALUES (?, ?, ?, ?)
+            """, (
+                telegram_id,
+                role_id,
+                json.dumps(scenario, ensure_ascii=False),
+                datetime.now().isoformat()
+            ))
+            await db.commit()
+
+    async def get_generated_scenario(self, telegram_id: str, role_id: str):
+        """Получить AI-сгенерированный сценарий"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT scenario_json, created_at
+                FROM generated_scenarios
+                WHERE telegram_id = ? AND role_id = ?
+                ORDER BY id DESC LIMIT 1
+            """, (telegram_id, role_id)) as cursor:
+                row = await cursor.fetchone()
+                if not row:
+                    return None
+                scenario = json.loads(row[0]) if row[0] else {}
+                scenario["created_at"] = row[1]
+                return scenario
+
+    async def save_ai_analysis(self, telegram_id: str, role_id: str, analysis: dict):
+        """Сохранить AI-анализ результатов сценария"""
+        async with aiosqlite.connect(self.db_path) as db:
+            # Проверяем, есть ли уже анализ
+            async with db.execute("""
+                SELECT id FROM ai_analyses WHERE telegram_id = ? AND role_id = ?
+                ORDER BY id DESC LIMIT 1
+            """, (telegram_id, role_id)) as cursor:
+                existing = await cursor.fetchone()
+
+            if existing:
+                await db.execute("""
+                    UPDATE ai_analyses SET analysis_json = ?, created_at = ?
+                    WHERE id = ?
+                """, (json.dumps(analysis, ensure_ascii=False), datetime.now().isoformat(), existing[0]))
+            else:
+                await db.execute("""
+                    INSERT INTO ai_analyses (telegram_id, role_id, analysis_json, created_at)
+                    VALUES (?, ?, ?, ?)
+                """, (telegram_id, role_id, json.dumps(analysis, ensure_ascii=False), datetime.now().isoformat()))
+            await db.commit()
+
+    async def get_ai_analysis(self, telegram_id: str, role_id: str = None):
+        """Получить AI-анализ для пользователя"""
+        async with aiosqlite.connect(self.db_path) as db:
+            if role_id:
+                async with db.execute("""
+                    SELECT analysis_json, created_at
+                    FROM ai_analyses
+                    WHERE telegram_id = ? AND role_id = ?
+                    ORDER BY id DESC LIMIT 1
+                """, (telegram_id, role_id)) as cursor:
+                    row = await cursor.fetchone()
+                    if not row:
+                        return None
+                    analysis = json.loads(row[0]) if row[0] else {}
+                    analysis["created_at"] = row[1]
+                    return analysis
+            else:
+                async with db.execute("""
+                    SELECT role_id, analysis_json, created_at
+                    FROM ai_analyses
+                    WHERE telegram_id = ?
+                    ORDER BY id DESC
+                """, (telegram_id,)) as cursor:
+                    rows = await cursor.fetchall()
+                    result = []
+                    for r in rows:
+                        item = json.loads(r[1]) if r[1] else {}
+                        item["role_id"] = r[0]
+                        item["created_at"] = r[2]
+                        result.append(item)
+                    return result
+
+    # ===== Daily Challenges =====
+
+    async def save_daily_challenge(self, telegram_id: str, role_id: str, situation: str, date_str: str):
+        """Сохранить сгенерированную ситуацию"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                INSERT INTO daily_challenges (telegram_id, role_id, situation_text, challenge_date, created_at)
+                VALUES (?, ?, ?, ?, ?)
+            """, (telegram_id, role_id, situation, date_str, datetime.now().isoformat()))
+            await db.commit()
+
+    async def get_daily_challenge(self, telegram_id: str, date_str: str):
+        """Получить ситуацию на сегодня"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT id, role_id, situation_text, user_answer, ai_score, ai_feedback, challenge_date
+                FROM daily_challenges
+                WHERE telegram_id = ? AND challenge_date = ?
+                ORDER BY id DESC LIMIT 1
+            """, (telegram_id, date_str)) as cursor:
+                row = await cursor.fetchone()
+                if not row:
+                    return None
+                return {
+                    "id": row[0],
+                    "role_id": row[1],
+                    "situation_text": row[2],
+                    "user_answer": row[3],
+                    "ai_score": row[4],
+                    "ai_feedback": row[5],
+                    "challenge_date": row[6],
+                    "answered": row[3] is not None,
+                }
+
+    async def submit_daily_answer(self, challenge_id: int, user_answer: str, ai_score: int, ai_feedback: str):
+        """Сохранить ответ на ситуацию"""
+        async with aiosqlite.connect(self.db_path) as db:
+            await db.execute("""
+                UPDATE daily_challenges
+                SET user_answer = ?, ai_score = ?, ai_feedback = ?, created_at = ?
+                WHERE id = ?
+            """, (user_answer, ai_score, ai_feedback, datetime.now().isoformat(), challenge_id))
+            await db.commit()
+
+    async def get_daily_streak(self, telegram_id: str):
+        """Посчитать streak дней подряд"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT DISTINCT challenge_date
+                FROM daily_challenges
+                WHERE telegram_id = ? AND user_answer IS NOT NULL
+                ORDER BY challenge_date DESC
+            """, (telegram_id,)) as cursor:
+                rows = await cursor.fetchall()
+                if not rows:
+                    return {"streak": 0, "best_streak": 0, "total_completed": 0}
+
+                dates = sorted([r[0] for r in rows], reverse=True)
+                total = len(dates)
+
+                # Текущий streak
+                streak = 0
+                from datetime import datetime, timedelta
+                today = datetime.now().date().isoformat()
+                yesterday = (datetime.now().date() - timedelta(days=1)).isoformat()
+
+                if dates[0] == today or dates[0] == yesterday:
+                    streak = 1
+                    for i in range(1, len(dates)):
+                        prev = datetime.fromisoformat(dates[i-1]).date()
+                        curr = datetime.fromisoformat(dates[i]).date()
+                        if (prev - curr).days == 1:
+                            streak += 1
+                        else:
+                            break
+
+                # Лучший streak
+                best = 1
+                current = 1
+                for i in range(1, len(dates)):
+                    prev = datetime.fromisoformat(dates[i-1]).date()
+                    curr = datetime.fromisoformat(dates[i]).date()
+                    if (prev - curr).days == 1:
+                        current += 1
+                        best = max(best, current)
+                    else:
+                        current = 1
+
+                return {
+                    "streak": streak,
+                    "best_streak": best,
+                    "total_completed": total,
+                }
+
+    async def get_daily_history(self, telegram_id: str, limit: int = 10):
+        """Получить историю челленджей"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT role_id, situation_text, user_answer, ai_score, ai_feedback, challenge_date
+                FROM daily_challenges
+                WHERE telegram_id = ? AND user_answer IS NOT NULL
+                ORDER BY challenge_date DESC
+                LIMIT ?
+            """, (telegram_id, limit)) as cursor:
+                rows = await cursor.fetchall()
+                return [
+                    {
+                        "role_id": r[0],
+                        "situation_text": r[1],
+                        "user_answer": r[2],
+                        "ai_score": r[3],
+                        "ai_feedback": r[4],
+                        "challenge_date": r[5],
+                    }
+                    for r in rows
+                ]
+
+    # ===== Achievements (Бейджи) =====
+
+    async def unlock_achievement(self, telegram_id: str, achievement_id: str):
+        """Разблокировать достижение (если ещё не получено)"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT id FROM user_achievements WHERE telegram_id = ? AND achievement_id = ?
+            """, (telegram_id, achievement_id)) as cursor:
+                existing = await cursor.fetchone()
+                if not existing:
+                    await db.execute("""
+                        INSERT INTO user_achievements (telegram_id, achievement_id, unlocked_at)
+                        VALUES (?, ?, ?)
+                    """, (telegram_id, achievement_id, datetime.now().isoformat()))
+                    await db.commit()
+                    return True  # Новое достижение!
+                return False  # Уже есть
+
+    async def get_user_achievements(self, telegram_id: str):
+        """Получить все разблокированные достижения пользователя"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT achievement_id, unlocked_at
+                FROM user_achievements
+                WHERE telegram_id = ?
+                ORDER BY unlocked_at DESC
+            """, (telegram_id,)) as cursor:
+                rows = await cursor.fetchall()
+                return [{"achievement_id": r[0], "unlocked_at": r[1]} for r in rows]
+
+    async def has_achievement(self, telegram_id: str, achievement_id: str) -> bool:
+        """Проверить есть ли достижение"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT id FROM user_achievements WHERE telegram_id = ? AND achievement_id = ?
+            """, (telegram_id, achievement_id)) as cursor:
+                return await cursor.fetchone() is not None
+
+    # ===== Diagnostic Results =====
+
+    async def save_diagnostic_result(self, telegram_id: str, results: dict):
+        """Сохранить результаты диагностики (top_categories + recommended_roles)"""
+        async with aiosqlite.connect(self.db_path) as db:
+            # Проверяем есть ли уже результат
+            async with db.execute("""
+                SELECT id FROM diagnostic_results WHERE telegram_id = ?
+                ORDER BY id DESC LIMIT 1
+            """, (telegram_id,)) as cursor:
+                existing = await cursor.fetchone()
+
+            if existing:
+                await db.execute("""
+                    UPDATE diagnostic_results SET full_result = ?, created_at = ?
+                    WHERE id = ?
+                """, (json.dumps(results, ensure_ascii=False), datetime.now().isoformat(), existing[0]))
+            else:
+                await db.execute("""
+                    INSERT INTO diagnostic_results (telegram_id, full_result, created_at)
+                    VALUES (?, ?, ?)
+                """, (telegram_id, json.dumps(results, ensure_ascii=False), datetime.now().isoformat()))
+            await db.commit()
+
+    async def get_diagnostic_result(self, telegram_id: str) -> dict | None:
+        """Получить последний результат диагностики"""
+        async with aiosqlite.connect(self.db_path) as db:
+            async with db.execute("""
+                SELECT full_result, created_at
+                FROM diagnostic_results
+                WHERE telegram_id = ?
+                ORDER BY id DESC LIMIT 1
+            """, (telegram_id,)) as cursor:
+                row = await cursor.fetchone()
+                if not row:
+                    return None
+                result = json.loads(row[0]) if row[0] else {}
+                result["created_at"] = row[1]
+                return result
 
 db = Database()

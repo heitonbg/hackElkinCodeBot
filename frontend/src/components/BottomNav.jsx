@@ -5,8 +5,8 @@ export default function BottomNav() {
   const pathname = location.pathname
 
   const navItems = [
-    { path: '/dashboard', icon: '📊', label: 'Профиль' },
     { path: '/career', icon: '🚀', label: 'Карьера' },
+    { path: '/dashboard', icon: '📊', label: 'Профиль' },
     { path: '/vacancies', icon: '💼', label: 'Вакансии' },
     { path: '/chat', icon: '💬', label: 'Чат' },
   ]
@@ -18,9 +18,6 @@ export default function BottomNav() {
           key={item.path}
           to={item.path}
           className={`bottom-nav-item ${pathname === item.path ? 'active' : ''}`}
-          style={pathname === item.path ? {
-            position: 'relative',
-          } : {}}
         >
           <span className="bottom-nav-icon">{item.icon}</span>
           <span>{item.label}</span>
@@ -33,7 +30,7 @@ export default function BottomNav() {
               width: '4px',
               height: '4px',
               borderRadius: '50%',
-              background: 'var(--mts-red)',
+              background: 'var(--primary)',
             }} />
           )}
         </Link>

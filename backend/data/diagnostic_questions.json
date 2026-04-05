@@ -1,0 +1,266 @@
+{
+  "version": "1.0",
+  "description": "Диагностический тест для определения подходящих профессий. Каждый ответ даёт баллы определённым категориям ролей.",
+  "questions": [
+    {
+      "id": "q1",
+      "text": "Что тебе ближе всего?",
+      "options": [
+        {
+          "text": "Создавать что-то новое с нуля",
+          "scores": {"it_and_development": 8, "design_and_creative": 10, "media_and_entertainment": 7}
+        },
+        {
+          "text": "Разбираться в данных и находить закономерности",
+          "scores": {"data_and_analytics": 10, "finance_and_accounting": 7, "science_and_research": 8}
+        },
+        {
+          "text": "Общаться с людьми и помогать им",
+          "scores": {"hr_and_recruitment": 9, "education": 8, "healthcare": 7, "customer_service": 10}
+        },
+        {
+          "text": "Управлять процессами и командой",
+          "scores": {"management": 10, "logistics_and_supply_chain": 7, "construction": 6}
+        },
+        {
+          "text": "Продвигать продукты и услуги",
+          "scores": {"marketing_and_sales": 10, "retail": 8, "beauty": 6}
+        }
+      ]
+    },
+    {
+      "id": "q2",
+      "text": "Как ты предпочитаешь работать?",
+      "options": [
+        {
+          "text": "В одиночку, в тишине и концентрации",
+          "scores": {"it_and_development": 8, "data_and_analytics": 7, "design_and_creative": 8, "science_and_research": 9}
+        },
+        {
+          "text": "В команде, обсуждая идеи",
+          "scores": {"management": 8, "marketing_and_sales": 7, "hr_and_recruitment": 8, "media_and_entertainment": 7}
+        },
+        {
+          "text": "С клиентами, лицом к лицу",
+          "scores": {"customer_service": 10, "retail": 9, "hospitality": 8, "beauty": 7}
+        },
+        {
+          "text": "На удалёнке, из дома или коворкинга",
+          "scores": {"it_and_development": 9, "design_and_creative": 8, "data_and_analytics": 7, "marketing_and_sales": 6}
+        },
+        {
+          "text": "В движении, не люблю сидеть на месте",
+          "scores": {"transport": 9, "construction": 8, "sport": 7, "agriculture": 7, "cleaning_and_services": 8}
+        }
+      ]
+    },
+    {
+      "id": "q3",
+      "text": "Что тебя больше привлекает?",
+      "options": [
+        {
+          "text": "Технологии и программирование",
+          "scores": {"it_and_development": 10, "telecom": 7, "data_and_analytics": 6}
+        },
+        {
+          "text": "Дизайн и визуальная эстетика",
+          "scores": {"design_and_creative": 10, "media_and_entertainment": 8, "beauty": 7}
+        },
+        {
+          "text": "Финансы и цифры",
+          "scores": {"finance_and_accounting": 10, "data_and_analytics": 6, "logistics_and_supply_chain": 5}
+        },
+        {
+          "text": "Здоровье и медицина",
+          "scores": {"healthcare": 10, "sport": 7, "science_and_research": 6}
+        },
+        {
+          "text": "Строительство и инженерия",
+          "scores": {"construction": 10, "engineering_and_manufacturing": 9, "energy": 7}
+        }
+      ]
+    },
+    {
+      "id": "q4",
+      "text": "Какой у тебя опыт работы?",
+      "options": [
+        {
+          "text": "Нет опыта, ищу первую работу",
+          "scores": {"it_and_development": 3, "retail": 4, "customer_service": 4, "cleaning_and_services": 4, "hospitality": 3}
+        },
+        {
+          "text": "Стажировка или практика",
+          "scores": {"it_and_development": 5, "marketing_and_sales": 5, "design_and_creative": 5}
+        },
+        {
+          "text": "1-2 года в какой-то сфере",
+          "scores": {"it_and_development": 6, "finance_and_accounting": 6, "management": 5, "hr_and_recruitment": 5}
+        },
+        {
+          "text": "3+ лет, хочу сменить направление",
+          "scores": {"management": 7, "consulting": 6, "education": 6, "legal": 5}
+        },
+        {
+          "text": "Опытный специалист, ищу рост",
+          "scores": {"management": 8, "it_and_development": 7, "finance_and_accounting": 7}
+        }
+      ]
+    },
+    {
+      "id": "q5",
+      "text": "Что для тебя важнее в работе?",
+      "options": [
+        {
+          "text": "Высокая зарплата",
+          "scores": {"it_and_development": 8, "finance_and_accounting": 9, "management": 7, "legal": 7}
+        },
+        {
+          "text": "Творческая свобода",
+          "scores": {"design_and_creative": 10, "media_and_entertainment": 9, "marketing_and_sales": 6}
+        },
+        {
+          "text": "Стабильность и predictability",
+          "scores": {"finance_and_accounting": 8, "legal": 8, "government": 7, "education": 6}
+        },
+        {
+          "text": "Помощь людям и обществу",
+          "scores": {"healthcare": 10, "education": 9, "social_work": 9, "non_profit": 8}
+        },
+        {
+          "text": "Карьерный рост и развитие",
+          "scores": {"management": 9, "it_and_development": 8, "marketing_and_sales": 7, "consulting": 7}
+        }
+      ]
+    },
+    {
+      "id": "q6",
+      "text": "Как ты решаешь сложные задачи?",
+      "options": [
+        {
+          "text": "Анализирую данные и факты",
+          "scores": {"data_and_analytics": 10, "finance_and_accounting": 8, "science_and_research": 8, "legal": 6}
+        },
+        {
+          "text": "Ищу нестандартные решения",
+          "scores": {"design_and_creative": 9, "marketing_and_sales": 8, "it_and_development": 7, "media_and_entertainment": 7}
+        },
+        {
+          "text": "Советуюсь с другими",
+          "scores": {"management": 8, "hr_and_recruitment": 9, "customer_service": 7, "education": 6}
+        },
+        {
+          "text": "Действую по инструкции и правилам",
+          "scores": {"legal": 9, "finance_and_accounting": 8, "logistics_and_supply_chain": 7, "security": 7}
+        },
+        {
+          "text": "Экспериментирую и учусь на ошибках",
+          "scores": {"it_and_development": 8, "science_and_research": 9, "design_and_creative": 7, "engineering_and_manufacturing": 6}
+        }
+      ]
+    },
+    {
+      "id": "q7",
+      "text": "Какое образование у тебя есть или планируется?",
+      "options": [
+        {
+          "text": "Техническое (IT, инженерия)",
+          "scores": {"it_and_development": 10, "engineering_and_manufacturing": 8, "telecom": 8, "data_and_analytics": 7}
+        },
+        {
+          "text": "Гуманитарное (языки, история, культура)",
+          "scores": {"education": 8, "media_and_entertainment": 8, "marketing_and_sales": 7, "legal": 7}
+        },
+        {
+          "text": "Экономическое или юридическое",
+          "scores": {"finance_and_accounting": 10, "legal": 9, "management": 7, "logistics_and_supply_chain": 6}
+        },
+        {
+          "text": "Медицинское или биологическое",
+          "scores": {"healthcare": 10, "science_and_research": 8, "agriculture": 6, "beauty": 5}
+        },
+        {
+          "text": "Творческое или дизайнерское",
+          "scores": {"design_and_creative": 10, "media_and_entertainment": 9, "marketing_and_sales": 6, "beauty": 7}
+        }
+      ]
+    },
+    {
+      "id": "q8",
+      "text": "Что ты умеешь или хочешь научиться делать?",
+      "options": [
+        {
+          "text": "Программировать и работать с технологиями",
+          "scores": {"it_and_development": 10, "data_and_analytics": 7, "telecom": 6}
+        },
+        {
+          "text": "Рисовать, дизайнить, создавать контент",
+          "scores": {"design_and_creative": 10, "media_and_entertainment": 9, "marketing_and_sales": 7}
+        },
+        {
+          "text": "Общаться, продавать, вести переговоры",
+          "scores": {"marketing_and_sales": 10, "customer_service": 8, "hr_and_recruitment": 7, "retail": 7}
+        },
+        {
+          "text": "Организовывать, планировать, управлять",
+          "scores": {"management": 10, "logistics_and_supply_chain": 8, "construction": 7, "finance_and_accounting": 6}
+        },
+        {
+          "text": "Анализировать, исследовать, считать",
+          "scores": {"data_and_analytics": 10, "finance_and_accounting": 9, "science_and_research": 8, "legal": 5}
+        }
+      ]
+    },
+    {
+      "id": "q9",
+      "text": "Какой формат работы тебе ближе?",
+      "options": [
+        {
+          "text": "Офис с чётким графиком",
+          "scores": {"finance_and_accounting": 8, "legal": 8, "management": 7, "retail": 7}
+        },
+        {
+          "text": "Удалённая работа",
+          "scores": {"it_and_development": 9, "design_and_creative": 8, "data_and_analytics": 8, "marketing_and_sales": 6}
+        },
+        {
+          "text": "Свободный график / фриланс",
+          "scores": {"design_and_creative": 9, "media_and_entertainment": 8, "marketing_and_sales": 7, "it_and_development": 6}
+        },
+        {
+          "text": "Сменный график",
+          "scores": {"healthcare": 9, "hospitality": 8, "retail": 8, "security": 8, "transport": 7}
+        },
+        {
+          "text": "Проектная работа",
+          "scores": {"construction": 9, "engineering_and_manufacturing": 8, "it_and_development": 7, "consulting": 7}
+        }
+      ]
+    },
+    {
+      "id": "q10",
+      "text": "Кем ты видишь себя через 5 лет?",
+      "options": [
+        {
+          "text": "Экспертом в своей области",
+          "scores": {"it_and_development": 8, "healthcare": 8, "legal": 8, "science_and_research": 9, "design_and_creative": 7}
+        },
+        {
+          "text": "Руководителем команды или отдела",
+          "scores": {"management": 10, "hr_and_recruitment": 7, "finance_and_accounting": 7, "it_and_development": 6}
+        },
+        {
+          "text": "Предпринимателем / своим боссом",
+          "scores": {"marketing_and_sales": 9, "management": 8, "it_and_development": 7, "retail": 7, "beauty": 6}
+        },
+        {
+          "text": "Фрилансером с международными клиентами",
+          "scores": {"design_and_creative": 9, "it_and_development": 8, "media_and_entertainment": 7, "marketing_and_sales": 6}
+        },
+        {
+          "text": "Тем, кто делает мир лучше",
+          "scores": {"healthcare": 8, "education": 9, "social_work": 10, "non_profit": 10, "environment": 8}
+        }
+      ]
+    }
+  ]
+}

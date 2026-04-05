@@ -7,16 +7,15 @@ router = APIRouter()
 
 @router.post("/onboarding")
 async def save_onboarding(data: OnboardingData):
-    """Сохранение данных онбординга пользователя"""
-    user_data = {
+    """Сохранение данных онбординга пользователя (не трогает Telegram поля)"""
+    await db.save_onboarding_data(data.telegram_id, {
         "education": data.education,
         "field": data.field,
         "experience": data.experience,
         "interests": data.interests,
         "skills": data.skills,
         "career_goals": data.career_goals,
-    }
-    await db.save_user(data.telegram_id, user_data)
+    })
     return {"status": "success", "message": "Данные сохранены"}
 
 @router.get("/profile/{telegram_id}")
@@ -30,7 +29,20 @@ async def get_profile(telegram_id: str):
     user["skills"] = json.loads(user["skills"]) if user["skills"] else []
     user["career_goals"] = json.loads(user["career_goals"]) if user["career_goals"] else []
 
-    return {"exists": True, "profile": user}
+    # Добавляем Telegram-данные в ответ
+    telegram_data = {
+        "telegram_username": user.get("username"),
+        "telegram_first_name": user.get("first_name"),
+        "telegram_last_name": user.get("last_name"),
+        "telegram_photo_url": user.get("photo_url"),
+        "telegram_language_code": user.get("language_code"),
+    }
+
+    return {
+        "exists": True, 
+        "profile": user,
+        "telegram": telegram_data,
+    }
 
 @router.get("/stats/{telegram_id}")
 async def get_user_stats(telegram_id: str):
