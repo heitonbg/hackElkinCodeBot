@@ -16,8 +16,8 @@
 7. [Фронтенд](#-фронтенд)
 8. [Сервисы](#-сервисы)
 9. [Telegram бот](#-telegram-бот)
-10. [Деплой](#-деплой)
-11. [Переменные окружения](#-переменные-окружения)
+10. [Переменные окружения](#-переменные-окружения)
+11. [Деплой](#-деплой)
 12. [Troubleshooting](#-troubleshooting)
 
 ---
@@ -419,75 +419,23 @@ HMAC-SHA256 валидация `initData` (официальный алгорит
 
 ---
 
-## 🚀 Деплой
-
-### Backend → Amvera
-
-**amvera.yml:**
-```yaml
-meta:
-  environment: python
-  toolchain:
-    name: pip
-    version: 3.13
-build:
-  requirementsPath: requirements.txt
-run:
-  scriptName: main.py
-  persistenceMount: /data
-  containerPort: 8000
-```
-
-**Деплой:**
-```bash
-git push amvera main
-```
-
-**Environment Variables**
-```
-OPENROUTER_API_KEY=sk-or-v1-...
-OPENROUTER_MODEL=qwen/qwen3.6-plus:free
-OPENROUTER_MODEL_FALLBACK=stepfun/step-3.5-flash:free
-TG_BOT_TOKEN=123456789:ABC...
-HH_USER_AGENT=CareerFlow/1.0
-DATABASE_PATH=/data/career_navigator.db
-BACKEND_URL=https://your-app.amvera.io
-FRONTEND_URL=https://your-frontend.vercel.app
-WEBAPP_URL=https://your-frontend.vercel.app
-```
-
-### Frontend → Vercel
-
-```bash
-cd frontend
-npm run build
-vercel --prod
-```
-
-**Environment Variable:**
-```
-VITE_API_URL=https://your-backend.amvera.io/api
-```
-
-> URL бэкенда жёстко прописан в `frontend/src/api/client.js` — обновить при смене домена.
-
----
-
 ## 🔑 Переменные окружения
 
 ### `.env` (корень проекта)
 
-| Переменная | Обязательна | Описание | Пример |
+> **Для локальной разработки** — значения по умолчанию уже настроены.
+
+| Переменная | Обязательно | Описание | Значение по умолчанию |
 |---|---|---|---|
 | `OPENROUTER_API_KEY` | ✅ | Ключ OpenRouter AI | `sk-or-v1-...` |
 | `OPENROUTER_MODEL` | | Основная модель | `qwen/qwen3.6-plus:free` |
 | `OPENROUTER_MODEL_FALLBACK` | | Резервная модель | `stepfun/step-3.5-flash:free` |
 | `TG_BOT_TOKEN` | ✅ | Токен Telegram бота | `123456:ABC...` |
-| `HH_USER_AGENT` | ✅ | User-Agent для HH.ru | `CareerFlow/1.0 (email@example.com)` |
-| `BACKEND_URL` | | URL бэкенда | `https://app.amvera.io` |
-| `FRONTEND_URL` | | URL фронтенда | `https://app.vercel.app` |
-| `WEBAPP_URL` | ✅ | URL Mini App (из бота) | `https://app.vercel.app` |
-| `DATABASE_PATH` | | Путь к SQLite БД | `/data/career_navigator.db` |
+| `HH_USER_AGENT` | ✅ | User-Agent для HH.ru | `Mozilla/5.0 ...` |
+| `BACKEND_URL` | | URL бэкенда | `http://localhost:8000` |
+| `FRONTEND_URL` | | URL фронтенда | `http://localhost:5173` |
+| `WEBAPP_URL` | | URL Mini App (для продакшена) | `https://webtoelkin.vercel.app` |
+| `DATABASE_PATH` | | Путь к SQLite БД | `career_navigator.db` |
 
 ### Где получить ключи
 
@@ -524,6 +472,63 @@ VITE_API_URL=https://your-backend.amvera.io/api
 
 ---
 
+## 🚀 Деплой (продакшен)
+
+> Проект уже настроен для деплоя на **Amvera** (бэкенд) и **Vercel** (фронтенд).
+> Для переключения на продакшен — обновите `.env` и `frontend/src/api/client.js`.
+
+### Backend → Amvera
+
+**amvera.yml** уже настроен:
+```yaml
+meta:
+  environment: python
+  toolchain:
+    name: pip
+    version: 3.13
+build:
+  requirementsPath: requirements.txt
+run:
+  scriptName: main.py
+  persistenceMount: /data
+  containerPort: 8000
+```
+
+**Что изменить при деплое:**
+1. В `.env` → `BACKEND_URL=https://your-app.amvera.io`
+2. В `frontend/src/api/client.js` → `const API_BASE = 'https://your-app.amvera.io/api'`
+3. В панели Amvera → Environment Variables → добавить все ключи из `.env`
+4. `DATABASE_PATH=/data/career_navigator.db` (для persist БД)
+
+### Frontend → Vercel
+
+```bash
+cd frontend
+npm run build
+vercel --prod
+```
+
+**Environment Variable в Vercel:**
+```
+VITE_API_URL=https://your-backend.amvera.io/api
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### AI не работает (Connection error)
+1. **Amvera может блокировать** `openrouter.ai` — проверить через `curl` с сервера
+2. **Rate limit** — free модели имеют ограничения, подождать 1-2 минуты
+3. **Проверить ключ:**
+   ```bash
+   curl -X POST https://openrouter.ai/api/v1/chat/completions \
+     -H "Authorization: Bearer YOUR_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"model":"qwen/qwen3.6-plus:free","messages":[{"role":"user","content":"test"}]}'
+   ```
+4. **Демо-режим** — сервисы возвращают демо-данные при недоступности AI
+
 ### Порт 8000 занят
 ```bash
 # Windows
@@ -532,16 +537,16 @@ taskkill /F /PID <PID>
 ```
 
 ### БД не создаётся
-- Убедиться, что директория `/data` существует (Amvera создаёт автоматически через `persistenceMount`)
-- Локально: `DATABASE_PATH=career_navigator.db` (без `/data/`)
+- Локально: `DATABASE_PATH=career_navigator.db` (без `/data/`) — уже настроено
+- На Amvera: `DATABASE_PATH=/data/career_navigator.db` + `persistenceMount: /data`
 
 ### Frontend не подключается к бэкенду
-- Проверить `API_BASE` в `frontend/src/api/client.js`
+- Проверить `API_BASE` в `frontend/src/api/client.js` → `http://localhost:8000/api`
 - Убедиться, что CORS настроен (`allow_origins=["*"]`)
 - `curl http://localhost:8000/api/health` → `{"status": "ok"}`
 
 ### Telegram бот не запускается
-- Проверить токен: `python -c "import os; from dotenv import load_dotenv; load_dotenv(); print(os.getenv('TG_BOT_TOKEN'))"`
+- Проверить токен: `python -c "import os; from dotenv import load_dotenv(); load_dotenv(); print(os.getenv('TG_BOT_TOKEN'))"`
 - Убедиться, что бот активен через @BotFather
 - Логи: `python bot.py` → «🤖 Бот запущен!»
 
