@@ -6,20 +6,20 @@ export default function ScenarioRunner() {
   const navigate = useNavigate()
   const location = useLocation()
   
-  // Получаем роли из state или из localStorage (fallback)
+  // Получаем роли из state или из sessionStorage (fallback)
   const [roles, setRoles] = useState(() => {
     const stateRoles = location.state?.roles || []
     if (stateRoles.length === 0) {
-      // Пробуем загрузить из localStorage
+      // Пробуем загрузить из sessionStorage
       try {
-        const stored = localStorage.getItem('pending_scenario_roles')
+        const stored = sessionStorage.getItem('pending_scenario_roles')
         if (stored) {
           const parsed = JSON.parse(stored)
-          console.log('📦 Loaded roles from localStorage:', parsed)
+          console.log('📦 Loaded roles from sessionStorage:', parsed)
           return parsed
         }
       } catch (e) {
-        console.error('Failed to load roles from localStorage:', e)
+        console.error('Failed to load roles from sessionStorage:', e)
       }
     }
     return stateRoles
@@ -38,8 +38,8 @@ export default function ScenarioRunner() {
   useEffect(() => {
     console.log(' ScenarioRunner mounted, roles:', roles)
     if (roles.length === 0) {
-      console.warn('⚠️ No roles, redirecting to diagnostic')
-      navigate('/diagnostic')
+      console.warn('⚠️ No roles, showing fallback')
+      setLoading(false) // Не редиректим, показываем fallback
       return
     }
     loadScenarios()
@@ -66,14 +66,14 @@ export default function ScenarioRunner() {
       }
 
       if (loaded.length === 0) {
-        console.error('❌ No scenarios loaded, redirecting to diagnostic')
-        navigate('/diagnostic')
+        console.error('❌ No scenarios loaded, showing fallback')
+        setLoading(false)
         return
       }
 
       console.log('✅ Loaded scenarios:', loaded.map(s => ({ role_id: s.role_id, questions: s.questions.length })))
-      // Очищаем localStorage после успешной загрузки
-      localStorage.removeItem('pending_scenario_roles')
+      // Очищаем sessionStorage после успешной загрузки
+      sessionStorage.removeItem('pending_scenario_roles')
 
       setScenarios(loaded)
 
@@ -177,12 +177,22 @@ export default function ScenarioRunner() {
     return <div className="loading"><div className="spinner" /></div>
   }
 
-  if (scenarios.length === 0) {
+  if (scenarios.length === 0 || roles.length === 0) {
     return (
-      <div style={{ textAlign: 'center', padding: 40 }}>
-        <div style={{ fontSize: '4rem', marginBottom: 16 }}>😕</div>
-        <h2>Нет ситуаций для выбранных ролей</h2>
-        <button className="btn btn-primary" onClick={() => navigate('/diagnostic')}>← Пройти диагностику</button>
+      <div className="onboarding-container">
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <div style={{ fontSize: '4rem', marginBottom: 16 }}>📋</div>
+          <h2 style={{ color: 'var(--dark-text)' }}>Нет доступных сценариев</h2>
+          <p style={{ color: 'var(--dark-text-muted)', marginBottom: 24 }}>
+            Для выбранных ролей пока нет сценариев. Попробуй выбрать другие профессии.
+          </p>
+          <button className="btn btn-primary" onClick={() => navigate('/diagnostic')} style={{ marginRight: 8 }}>
+            ← К результатам теста
+          </button>
+          <button className="btn" onClick={() => navigate('/career')} style={{ background: 'rgba(255,255,255,0.1)', color: 'var(--dark-text)' }}>
+            На главную
+          </button>
+        </div>
       </div>
     )
   }

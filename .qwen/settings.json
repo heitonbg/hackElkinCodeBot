@@ -11,7 +11,9 @@
       "Bash(findstr *)",
       "Bash(tasklist *)",
       "Bash(npm run *)",
-      "Bash(netstat *)"
+      "Bash(netstat *)",
+      "Bash(start *)",
+      "Bash(del *)"
     ]
   },
   "$version": 3

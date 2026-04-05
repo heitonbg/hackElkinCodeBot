@@ -22,8 +22,27 @@ export default function DiagnosticTest() {
   }
 
   useEffect(() => {
-    loadQuestions()
+    // Сначала проверяем БД — есть ли уже пройденный тест
+    checkExistingResults()
   }, [])
+
+  async function checkExistingResults() {
+    try {
+      // Проверяем БД — есть ли сохранённые результаты диагностики
+      const dbResult = await api.getDiagnosticResult()
+      if (dbResult.exists && dbResult.result?.recommended_roles?.length > 0) {
+        console.log('✅ Found diagnostic results in DB')
+        setResults(dbResult.result)
+        setLoading(false)
+        return
+      }
+    } catch (err) {
+      console.error('Failed to check existing results:', err)
+    }
+
+    // Нет результатов — запускаем тест
+    loadQuestions()
+  }
 
   async function loadQuestions() {
     try {
@@ -79,7 +98,6 @@ export default function DiagnosticTest() {
     try {
       const result = await api.runDiagnostic(finalAnswers)
       setResults(result)
-      localStorage.setItem('diagnostic_results', JSON.stringify(result))
 
       // Сохраняем профиль в БД
       if (profile) {
@@ -165,8 +183,8 @@ export default function DiagnosticTest() {
                 key={role.role_id}
                 onClick={() => {
                   console.log('🎯 Navigating to scenario-runner with role:', role)
-                  // Сохраняем роль в localStorage как fallback
-                  localStorage.setItem('pending_scenario_roles', JSON.stringify([role]))
+                  // Сохраняем роль в sessionStorage
+                  sessionStorage.setItem('pending_scenario_roles', JSON.stringify([role]))
                   navigate('/scenario-runner', { state: { roles: [role] } })
                 }}
                 style={{

@@ -4,6 +4,7 @@ import { api } from '../api/client'
 
 export default function Dashboard() {
   const [profile, setProfile] = useState(null)
+  const [telegramData, setTelegramData] = useState(null) // Реальные данные из Telegram
   const [loading, setLoading] = useState(true)
   const [matchedRoles, setMatchedRoles] = useState([])
   const [scenarioStats, setScenarioStats] = useState([])
@@ -37,6 +38,23 @@ export default function Dashboard() {
         setProfile(null)
       } else {
         setProfile(profileData.profile)
+        
+        // Загружаем реальные данные Telegram (username, photo)
+        if (profileData.telegram) {
+          setTelegramData(profileData.telegram)
+          
+          // Если нет фото — загружаем через Bot API (base64)
+          if (!profileData.telegram.telegram_photo_url) {
+            try {
+              const avatarData = await api.getTelegramAvatar()
+              if (avatarData?.photo_url) {
+                setTelegramData(prev => ({ ...prev, telegram_photo_url: avatarData.photo_url }))
+              }
+            } catch (e) {
+              console.warn('Failed to load avatar')
+            }
+          }
+        }
 
         try {
           const rolesResult = await api.matchRoles()
@@ -102,7 +120,7 @@ export default function Dashboard() {
     return (
       <div>
         <div className="page-header">
-          <h1>🧠 Career Navigator</h1>
+          <h1>🧠 CareerFlow</h1>
           <p>Твой карьерный навигатор</p>
         </div>
         <div style={{ padding: 16 }}>
@@ -110,10 +128,10 @@ export default function Dashboard() {
             <div style={{ fontSize: '4rem', marginBottom: 16 }}>👋</div>
             <h2>Добро пожаловать!</h2>
             <p style={{ color: 'var(--dark-text-muted)', marginBottom: 24, lineHeight: 1.5 }}>
-              Узнай подходящие роли, пройди тестирование и получи персональный карьерный план
+              Ответь на 10 вопросов и мы подберём подходящие профессии из 197 доступных
             </p>
-            <button className="btn btn-primary" onClick={() => navigate('/role-selection')}>
-              🚀 Начать
+            <button className="btn btn-primary" onClick={() => navigate('/diagnostic')}>
+              🚀 Пройти диагностику
             </button>
           </div>
         </div>
@@ -200,6 +218,130 @@ export default function Dashboard() {
       </div>
 
       <div style={{ padding: 16 }}>
+
+        {/* ===== ПРОФИЛЬ TELEGRAM ===== */}
+        <div className="card" style={{ background: 'linear-gradient(135deg, rgba(227,6,17,0.12) 0%, rgba(255,45,55,0.08) 100%)', border: '1px solid rgba(227,6,17,0.25)' }}>
+          {/* Аватар + Имя */}
+          <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 20 }}>
+            {/* Аватарка */}
+            <div style={{ position: 'relative' }}>
+              <div style={{
+                width: 80, height: 80, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #E30611, #FF2D37)',
+                padding: '3px',
+                boxShadow: '0 4px 20px rgba(227,6,17,0.3)',
+              }}>
+                <img
+                  src={telegramData?.telegram_photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent((telegramData?.telegram_first_name || 'U') + ' ' + (telegramData?.telegram_last_name || ''))}&background=E30611&color=fff&size=160&bold=true`}
+                  alt="Avatar"
+                  style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '3px solid #1A1A1A' }}
+                />
+              </div>
+              {telegramData?.telegram_language_code && (
+                <div style={{
+                  position: 'absolute', bottom: -2, right: -2,
+                  background: '#1A1A1A', borderRadius: 12,
+                  padding: '2px 6px', fontSize: '0.7rem',
+                  border: '2px solid rgba(227,6,17,0.3)',
+                }}>
+                  🌐 {telegramData.telegram_language_code.toUpperCase()}
+                </div>
+              )}
+            </div>
+
+            {/* Информация */}
+            <div style={{ flex: 1 }}>
+              <h3 style={{ margin: 0, fontSize: '1.3rem', color: 'var(--dark-text)' }}>
+                {telegramData?.telegram_first_name || profile?.education?.split(' ')[0] || 'Пользователь'}
+                {telegramData?.telegram_last_name && (
+                  <span style={{ marginLeft: 6, color: 'var(--dark-text-muted)', fontWeight: 400 }}>
+                    {telegramData.telegram_last_name}
+                  </span>
+                )}
+              </h3>
+              
+              {telegramData?.telegram_username && (
+                <div style={{ fontSize: '0.9rem', color: 'var(--primary)', marginTop: 4, fontWeight: 600 }}>
+                  @{telegramData.telegram_username}
+                </div>
+              )}
+
+              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginTop: 6 }}>
+                ID: {profile?.telegram_id}
+              </div>
+            </div>
+          </div>
+
+          {/* Заполненность профиля */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--dark-text)', fontWeight: 600 }}>Заполненность профиля</span>
+              <span style={{
+                padding: '4px 10px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 700,
+                background: profileCompleteness >= 80 ? 'rgba(16,185,129,0.15)' : profileCompleteness >= 50 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                color: profileCompleteness >= 80 ? '#059669' : profileCompleteness >= 50 ? '#D97706' : '#DC2626',
+              }}>
+                {profileCompleteness}%
+              </span>
+            </div>
+            <div className="progress-bar" style={{ height: '8px' }}>
+              <div className="progress-fill" style={{ width: `${profileCompleteness}%`, height: '100%' }} />
+            </div>
+          </div>
+
+          {/* Информация профиля */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 12 }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>🎓 Образование</div>
+              <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--dark-text)' }}>{profile?.education || '—'}</div>
+            </div>
+            <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 12 }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>💼 Направление</div>
+              <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--dark-text)' }}>{profile?.field || '—'}</div>
+            </div>
+            <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 12 }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>⏱️ Опыт</div>
+              <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--dark-text)' }}>{profile?.experience || '—'}</div>
+            </div>
+            <div style={{ padding: '10px 12px', background: 'rgba(255,255,255,0.04)', borderRadius: 12 }}>
+              <div style={{ fontSize: '0.7rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>📊 Уровень</div>
+              <div style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--dark-text)' }}>{skillLevel}</div>
+            </div>
+          </div>
+
+          {/* Интересы */}
+          {(profile?.interests || []).length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginBottom: 6, fontWeight: 600 }}>🎯 Интересы</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {profile.interests.map((interest, i) => (
+                  <span key={i} className="tag tag-primary" style={{ fontSize: '0.75rem' }}>{interest}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Цели */}
+          {(profile?.career_goals || []).length > 0 && (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginBottom: 6, fontWeight: 600 }}>🏆 Цели</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {profile.career_goals.map((goal, i) => (
+                  <span key={i} className="tag tag-primary" style={{ fontSize: '0.75rem' }}>{goal}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Кнопки */}
+          <button
+            className="btn btn-secondary"
+            style={{ width: '100%', marginTop: 16, fontSize: '0.8rem' }}
+            onClick={() => navigate('/diagnostic')}
+          >
+            ✏️ Пройти диагностику
+          </button>
+        </div>
 
         {/* ===== РЕКОМЕНДАЦИИ ===== */}
         {recommendations.length > 0 && (
@@ -343,77 +485,6 @@ export default function Dashboard() {
               Загрузка ситуации...
             </div>
           )}
-        </div>
-
-        {/* ===== ПРОФИЛЬ ===== */}
-        <div className="card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-            <h3 style={{ margin: 0 }}>👤 Твой профиль</h3>
-            <span style={{
-              padding: '4px 10px', borderRadius: 12, fontSize: '0.8rem', fontWeight: 700,
-              background: profileCompleteness >= 80 ? 'rgba(16,185,129,0.15)' : profileCompleteness >= 50 ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
-              color: profileCompleteness >= 80 ? '#059669' : profileCompleteness >= 50 ? '#D97706' : '#DC2626',
-            }}>
-              {profileCompleteness}%
-            </span>
-          </div>
-
-          {/* Прогресс-бар заполненности */}
-          <div className="progress-bar" style={{ marginBottom: 16 }}>
-            <div className="progress-fill" style={{ width: `${profileCompleteness}%` }} />
-          </div>
-
-          {/* Информация профиля */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>🎓 Образование</div>
-              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--dark-text)' }}>{profile?.education || '—'}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>💼 Направление</div>
-              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--dark-text)' }}>{profile?.field || '—'}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>⏱️ Опыт</div>
-              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--dark-text)' }}>{profile?.experience || '—'}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginBottom: 4 }}>📊 Уровень</div>
-              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--dark-text)' }}>{skillLevel}</div>
-            </div>
-          </div>
-
-          {/* Интересы */}
-          {(profile?.interests || []).length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginBottom: 6 }}>🎯 Интересы</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {profile.interests.map((interest, i) => (
-                  <span key={i} className="tag tag-primary" style={{ fontSize: '0.75rem' }}>{interest}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Цели */}
-          {(profile?.career_goals || []).length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <div style={{ fontSize: '0.75rem', color: 'var(--dark-text-muted)', marginBottom: 6 }}>🏆 Цели</div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                {profile.career_goals.map((goal, i) => (
-                  <span key={i} className="tag tag-primary" style={{ fontSize: '0.75rem' }}>{goal}</span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <button
-            className="btn btn-secondary"
-            style={{ width: '100%', marginTop: 12, fontSize: '0.85rem' }}
-            onClick={() => navigate('/diagnostic')}
-          >
-            ✏️ Пройти диагностику заново
-          </button>
         </div>
 
         {/* ===== НАВЫКИ ===== */}

@@ -247,7 +247,30 @@ def search_roles(query: str) -> list:
 
 
 def get_role_scenario(role_id: str, level: str = "junior") -> dict | None:
-    """Получить сценарий для роли и уровня"""
+    """Получить сценарий для роли и уровня.
+    Ищет сначала в scenarios_primary.json, потом в scenarios_from_hh.json.
+    """
+    # Сначала ищем в scenarios_primary.json
+    scenarios_paths = [
+        os.path.join(os.path.dirname(__file__), '..', 'data', 'scenarios_primary.json'),
+        os.path.join(os.path.dirname(__file__), '..', 'data', 'scenarios_from_hh.json'),
+    ]
+    
+    for path in scenarios_paths:
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            for scenario in data.get("scenarios", []):
+                if scenario.get("role_id") == role_id:
+                    return {
+                        "role_id": scenario["role_id"],
+                        "title": scenario.get("title") or scenario.get("role_name", ""),
+                        "questions": scenario.get("questions", []),
+                    }
+        except Exception as e:
+            logger.warning(f"Failed to load scenarios from {path}: {e}")
+    
+    # Если не нашли в отдельных файлах — ищем в roles_database.json
     db = _load_roles_db()
     for role in db.get("roles", []):
         if role["role_id"] == role_id:
@@ -258,4 +281,5 @@ def get_role_scenario(role_id: str, level: str = "junior") -> dict | None:
                     "title": role["title"],
                     **scenarios[level],
                 }
+    
     return None

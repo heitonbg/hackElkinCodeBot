@@ -17,53 +17,26 @@ export default function CareerPath() {
 
   async function loadData() {
     try {
-      const profileData = await api.getProfile()
-      if (!profileData.exists) {
-        navigate('/diagnostic')
-        return
-      }
-
-      const profile = profileData.profile || {}
-      const hasField = profile.field && profile.field.trim().length > 0
-      const hasInterests = (profile.interests || []).length > 0
-      const hasSkills = (profile.skills || []).length > 0
-      const hasGoals = (profile.career_goals || []).length > 0
-
-      if (!hasField && !hasInterests && !hasSkills && !hasGoals) {
-        navigate('/diagnostic')
-        return
-      }
-
-      const storedResults = localStorage.getItem('diagnostic_results')
-      if (storedResults) {
+      // Загружаем результаты диагностики из БД
+      const dbResult = await api.getDiagnosticResult()
+      if (dbResult.exists && dbResult.result?.recommended_roles?.length > 0) {
+        console.log('✅ Found diagnostic results in DB')
+        setMatchedRoles(dbResult.result.recommended_roles)
         try {
-          const parsed = JSON.parse(storedResults)
-          if (parsed.recommended_roles && parsed.recommended_roles.length > 0) {
-            setMatchedRoles(parsed.recommended_roles)
-            const stats = await api.getMyScenarioStats()
-            setScenarioStats(stats.results || [])
-            setLoading(false)
-            return
-          }
-        } catch (e) {
-          console.error('Failed to parse diagnostic results:', e)
-        }
+          const stats = await api.getMyScenarioStats()
+          setScenarioStats(stats.results || [])
+        } catch (e) { /* ignore */ }
+        setLoading(false)
+        return
       }
 
-      const rolesResult = await api.matchRoles()
-      setMatchedRoles(rolesResult.roles || [])
-      const stats = await api.getMyScenarioStats()
-      setScenarioStats(stats.results || [])
-
-      try {
-        const streak = await api.getDailyStreak()
-        setDailyStreak(streak)
-      } catch (e) {
-        console.warn('Daily streak failed:', e)
-      }
+      // Нет результатов — показываем приглашение
+      console.log('📋 No results in DB, showing onboarding prompt')
+      setMatchedRoles([])
+      setLoading(false)
     } catch (err) {
       console.error('CareerPath error:', err)
-    } finally {
+      setMatchedRoles([])
       setLoading(false)
     }
   }
@@ -130,6 +103,24 @@ export default function CareerPath() {
       </div>
 
       <div style={{ padding: 16 }}>
+
+        {/* ===== ПРИГЛАШЕНИЕ ПРОЙТИ ТЕСТ ===== */}
+        {matchedRoles.length === 0 && (
+          <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+            <div style={{ fontSize: '3rem', marginBottom: 12 }}>🧠</div>
+            <h2 style={{ color: 'var(--dark-text)', marginBottom: 8 }}>Пройди диагностику</h2>
+            <p style={{ color: 'var(--dark-text-muted)', marginBottom: 20, fontSize: '0.9rem' }}>
+              Ответь на 10 вопросов и мы подберём подходящие профессии из 197 доступных
+            </p>
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate('/diagnostic')}
+              style={{ width: '100%' }}
+            >
+              Начать тест →
+            </button>
+          </div>
+        )}
 
         {/* ===== ПРОГРЕСС ===== */}
         <div className="card">

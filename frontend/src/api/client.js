@@ -1,11 +1,34 @@
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE = 'https://elkinbot-iwrawww.amvera.io/api';
 
-// Получаем telegram_id из Telegram WebApp
+// Получаем telegram_id из Telegram WebApp или sessionStorage
 function getTelegramId() {
+  // Сначала проверяем Telegram WebApp
   if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
-    return String(window.Telegram.WebApp.initDataUnsafe.user?.id || 'demo_user');
+    const userId = window.Telegram.WebApp.initDataUnsafe.user?.id;
+    if (userId) return String(userId);
   }
+  
+  // Fallback из sessionStorage (текущая сессия)
+  const savedId = sessionStorage.getItem('telegram_id');
+  if (savedId) return savedId;
+  
   return 'demo_user';
+}
+
+// Получаем полный initData от Telegram (для валидации на бэкенде)
+function getTelegramInitData() {
+  if (window.Telegram && window.Telegram.WebApp) {
+    return window.Telegram.WebApp.initData || null;
+  }
+  return null;
+}
+
+// Проверяем, запущены ли мы внутри Telegram
+function isInsideTelegram() {
+  if (window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initDataUnsafe) {
+    return !!window.Telegram.WebApp.initDataUnsafe.user;
+  }
+  return false;
 }
 
 async function request(endpoint, options = {}) {
@@ -31,6 +54,70 @@ async function request(endpoint, options = {}) {
 }
 
 export const api = {
+  // === Telegram Auth ===
+  
+  /**
+   * Авторизация через Telegram WebApp.
+   * Отправляет initData на бэкенд для валидации и сохраняет профиль.
+   */
+  async telegramAuth(strict = true) {
+    const initData = getTelegramInitData();
+    if (!initData) {
+      // Не в Telegram — возвращаем заглушку
+      return {
+        telegram_id: getTelegramId(),
+        username: null,
+        first_name: 'Demo User',
+        last_name: null,
+        photo_url: null,
+        language_code: 'en',
+        is_premium: false,
+        is_new_user: false,
+      };
+    }
+    
+    return request('/telegram/auth', {
+      method: 'POST',
+      body: JSON.stringify({
+        init_data: initData,
+        strict_validation: strict,
+      }),
+    });
+  },
+
+  /**
+   * Получить профиль пользователя из Telegram API
+   */
+  async getTelegramProfile() {
+    return request(`/telegram/profile/${getTelegramId()}`);
+  },
+
+  /**
+   * Синхронизировать актуальные данные из Telegram (username, photo)
+   */
+  async syncTelegramProfile() {
+    const initData = getTelegramInitData();
+    if (!initData) {
+      return { status: 'ok', telegram_id: getTelegramId(), updated: false };
+    }
+
+    return request('/telegram/sync-profile', {
+      method: 'POST',
+      body: JSON.stringify({
+        init_data: initData,
+        strict_validation: true,
+      }),
+    });
+  },
+
+  /**
+   * Получить аватар пользователя (base64 data URI).
+   * Скачивает фото из Telegram через Bot API.
+   */
+  async getTelegramAvatar() {
+    return request(`/telegram/avatar/${getTelegramId()}`);
+  },
+
   // User
   async saveOnboarding(data) {
     return request('/user/onboarding', {
@@ -261,6 +348,14 @@ export const api = {
     });
   },
 
+  /**
+   * Получить результаты диагностики из БД (не localStorage).
+   * Работает даже после перезапуска Mini App.
+   */
+  async getDiagnosticResult() {
+    return request(`/onboarding/diagnostic-result/${getTelegramId()}`);
+  },
+
   async saveProfile(profileData) {
     return request('/onboarding/save-profile', {
       method: 'POST',
@@ -301,4 +396,4 @@ export const api = {
   },
 };
 
-export { getTelegramId };
+export { getTelegramId, getTelegramInitData, isInsideTelegram };

@@ -59,20 +59,26 @@ async def run_diagnostic(data: DiagnosticRequest):
     
     # Скоринг
     results = score_diagnostic(answers)
-    
+
     # Сохраняем профиль (обновляем поле field на основе топ категории)
+    # Используем save_onboarding_data чтобы НЕ затирать Telegram поля
     if results["top_categories"]:
         top_category = results["top_categories"][0]
-        await db.save_user(data.telegram_id, {
+        # Сохраняем top-12 рекомендованных ролей в career_goals
+        recommended_titles = [r["title"] for r in results.get("recommended_roles", [])[:12]]
+        await db.save_onboarding_data(data.telegram_id, {
             "education": "",
             "field": top_category["category_name"],
             "experience": "",
             "interests": [],
             "skills": [],
-            "career_goals": [],
+            "career_goals": recommended_titles,
         })
-    
-    # Сохраняем результаты диагностики
+
+    # Сохраняем результаты диагностики в БД
+    await db.save_diagnostic_result(data.telegram_id, results)
+
+    # Сохраняем результаты диагностики (для совместимости)
     save_diagnostic_result(data.telegram_id, answers, results)
 
     # Проверяем достижение
@@ -83,8 +89,8 @@ async def run_diagnostic(data: DiagnosticRequest):
 
 @router.post("/save-profile")
 async def save_profile(data: SaveProfileRequest):
-    """Сохранить профиль пользователя после диагностики"""
-    await db.save_user(data.telegram_id, {
+    """Сохранить профиль пользователя после диагностики (НЕ трогает Telegram поля)"""
+    await db.save_onboarding_data(data.telegram_id, {
         "education": data.education,
         "field": data.field,
         "experience": data.experience,
@@ -93,6 +99,15 @@ async def save_profile(data: SaveProfileRequest):
         "career_goals": data.career_goals,
     })
     return {"status": "success", "message": "Профиль сохранён"}
+
+
+@router.get("/diagnostic-result/{telegram_id}")
+async def get_diagnostic_result_api(telegram_id: str):
+    """Получить результаты диагностики из БД (не localStorage)"""
+    result = await db.get_diagnostic_result(telegram_id)
+    if not result:
+        return {"exists": False, "result": None}
+    return {"exists": True, "result": result}
 
 
 @router.get("/roles/all")
